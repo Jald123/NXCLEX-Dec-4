@@ -1,29 +1,22 @@
 import { NextResponse } from 'next/server';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+// Known Gemini models - listModels is not available in the client SDK
+const GEMINI_MODELS = [
+    { name: 'gemini-2.0-flash', displayName: 'Gemini 2.0 Flash', description: 'Fast and efficient model for quick responses' },
+    { name: 'gemini-1.5-pro', displayName: 'Gemini 1.5 Pro', description: 'Advanced model with large context window' },
+    { name: 'gemini-1.5-flash', displayName: 'Gemini 1.5 Flash', description: 'Fast model with good balance of speed and quality' },
+    { name: 'gemini-pro', displayName: 'Gemini Pro', description: 'Versatile model for various tasks' },
+];
 
 export async function GET() {
     try {
-        console.log('Listing available Gemini models...');
-
-        // Try to list models
-        const models = await genAI.listModels();
-
-        const modelList = models.map(model => ({
-            name: model.name,
-            displayName: model.displayName,
-            description: model.description,
-            supportedGenerationMethods: model.supportedGenerationMethods,
-        }));
-
-        console.log('Available models:', modelList);
+        console.log('Returning known Gemini models...');
 
         return NextResponse.json({
             success: true,
             apiKeyConfigured: !!process.env.GEMINI_API_KEY,
-            modelsFound: modelList.length,
-            models: modelList
+            modelsFound: GEMINI_MODELS.length,
+            models: GEMINI_MODELS
         });
     } catch (error) {
         console.error('Error listing models:', error);
@@ -31,7 +24,7 @@ export async function GET() {
             success: false,
             error: error instanceof Error ? error.message : 'Unknown error',
             apiKeyConfigured: !!process.env.GEMINI_API_KEY,
-            details: 'Failed to list available models. Check API key and permissions.'
+            details: 'Failed to list available models.'
         }, { status: 500 });
     }
 }
