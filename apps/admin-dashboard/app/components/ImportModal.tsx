@@ -237,7 +237,7 @@ export default function ImportModal({ isOpen, onClose, onImport }: ImportModalPr
                                             {q.stem.substring(0, 100)}...
                                         </p>
                                         <p className="text-xs text-gray-600">
-                                            {q.options.length} options
+                                            {q.options.length} options • {q.options.filter(o => o.isCorrect === true).length} correct
                                         </p>
                                     </div>
                                 ))}

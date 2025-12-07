@@ -232,6 +232,7 @@ export interface Question {
 export interface QuestionOption {
     id: string;
     text: string;
+    isCorrect?: boolean; // For import/draft functionality - marks correct answer(s)
     isTrap?: boolean; // For Trap Hunter analysis
     trapReason?: string;
 }
