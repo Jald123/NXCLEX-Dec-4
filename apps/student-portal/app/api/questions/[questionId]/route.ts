@@ -3,10 +3,10 @@ import { getPublishedItem } from '@/lib/storage';
 
 export async function GET(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: { questionId: string } }
 ) {
     try {
-        const item = await getPublishedItem(params.id);
+        const item = await getPublishedItem(params.questionId);
 
         if (!item) {
             return NextResponse.json({ error: 'Question not found' }, { status: 404 });

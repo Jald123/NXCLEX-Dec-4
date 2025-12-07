@@ -1,34 +1,16 @@
 import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
-import fs from "fs";
-import path from "path";
+import { supabaseAdmin, TABLES } from "@/lib/supabase";
 import type { StudentUser } from "@nclex/shared-api-types";
 import { getUserRole } from "@nclex/shared-api-types";
 
-const USERS_FILE = path.join(process.cwd(), "data", "users.json");
-
-function getUsers(): StudentUser[] {
+async function updateUserLastLogin(userId: string) {
     try {
-        if (!fs.existsSync(USERS_FILE)) {
-            return [];
-        }
-        const data = fs.readFileSync(USERS_FILE, "utf-8");
-        return JSON.parse(data);
-    } catch (error) {
-        console.error("Error reading users file:", error);
-        return [];
-    }
-}
-
-function updateUserLastLogin(userId: string) {
-    try {
-        const users = getUsers();
-        const userIndex = users.findIndex(u => u.id === userId);
-        if (userIndex !== -1) {
-            users[userIndex].lastLoginAt = new Date().toISOString();
-            fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
-        }
+        await supabaseAdmin
+            .from(TABLES.USERS)
+            .update({ updated_at: new Date().toISOString() })
+            .eq('id', userId);
     } catch (error) {
         console.error("Error updating last login:", error);
     }
@@ -47,18 +29,20 @@ const handler = NextAuth({
                     return null;
                 }
 
-                const users = getUsers();
-                const user = users.find(
-                    u => u.email.toLowerCase() === credentials.email.toLowerCase()
-                );
+                // Query user from Supabase
+                const { data: user, error } = await supabaseAdmin
+                    .from(TABLES.USERS)
+                    .select('*')
+                    .eq('email', credentials.email.toLowerCase())
+                    .single();
 
-                if (!user) {
+                if (error || !user) {
                     return null;
                 }
 
                 const isValidPassword = await bcrypt.compare(
                     credentials.password,
-                    user.passwordHash
+                    user.password_hash
                 );
 
                 if (!isValidPassword) {
@@ -66,14 +50,17 @@ const handler = NextAuth({
                 }
 
                 // Update last login
-                updateUserLastLogin(user.id);
+                await updateUserLastLogin(user.id);
+
+                // Map database columns to app format
+                const subscriptionStatus = user.subscription_status as StudentUser['subscriptionStatus'];
 
                 return {
                     id: user.id,
                     email: user.email,
                     name: user.name,
-                    subscriptionStatus: user.subscriptionStatus,
-                    role: getUserRole(user.subscriptionStatus),
+                    subscriptionStatus,
+                    role: getUserRole(subscriptionStatus),
                 };
             }
         })
@@ -102,6 +89,7 @@ const handler = NextAuth({
     session: {
         strategy: "jwt",
     },
+    secret: process.env.NEXTAUTH_SECRET,
 });
 
 export { handler as GET, handler as POST };

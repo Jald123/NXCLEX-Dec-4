@@ -1,10 +1,9 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import fs from 'fs';
-import path from 'path';
+import { getAllItems, updateItem } from '@/lib/db';
+import type { NclexItemDraft } from '@nclex/shared-api-types';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-const ITEMS_FILE = path.join(process.cwd(), 'data', 'items.json');
 
 interface BulkFixRequest {
     itemIds: string[];
@@ -14,7 +13,7 @@ interface BulkFixRequest {
 interface BulkFixResult {
     itemId: string;
     success: boolean;
-    fixedItem?: any;
+    fixedItem?: NclexItemDraft | null;
     error?: string;
 }
 
@@ -26,9 +25,9 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'No items provided' }, { status: 400 });
         }
 
-        // Load items
-        const itemsData = JSON.parse(fs.readFileSync(ITEMS_FILE, 'utf-8'));
-        const items = itemsData.filter((item: any) => itemIds.includes(item.id));
+        // Load items from database
+        const allItems = await getAllItems();
+        const items = allItems.filter((item) => itemIds.includes(item.id));
 
         const results: BulkFixResult[] = [];
         const batchSize = 3; // Reduced to avoid rate limits
@@ -40,21 +39,19 @@ export async function POST(req: Request) {
             const batch = items.slice(i, i + batchSize);
 
             const batchResults = await Promise.allSettled(
-                batch.map(async (item: any) => {
+                batch.map(async (item) => {
                     try {
                         if (!item.auditReport) {
                             throw new Error('Item must be audited before fixing');
                         }
 
-                        const fixedItem = await performAIFix(item, type);
+                        const fixedData = await performAIFix(item, type);
 
-                        // Update item in storage
-                        const updatedItems = itemsData.map((it: any) =>
-                            it.id === item.id
-                                ? { ...fixedItem, status: 'ai_fix', lastUpdatedAt: new Date().toISOString() }
-                                : it
-                        );
-                        fs.writeFileSync(ITEMS_FILE, JSON.stringify(updatedItems, null, 2));
+                        // Update item in database
+                        const fixedItem = await updateItem(item.id, {
+                            ...fixedData,
+                            status: 'ai_fix'
+                        });
 
                         successCount++;
                         return { itemId: item.id, success: true, fixedItem };
@@ -98,22 +95,39 @@ export async function POST(req: Request) {
     }
 }
 
-async function performAIFix(item: any, type: string): Promise<any> {
-    const issuesList = item.auditReport.issues.map((issue: any, i: number) =>
+interface AuditIssue {
+    severity: string;
+    category: string;
+    message: string;
+    suggested_fix?: string;
+}
+
+interface FixableItem {
+    stem: string;
+    options?: Array<{ text: string; isCorrect?: boolean }>;
+    rationale: string;
+    auditReport?: {
+        overallRisk?: string;
+        issues: AuditIssue[];
+    };
+}
+
+async function performAIFix(item: FixableItem, type: string): Promise<Partial<NclexItemDraft>> {
+    const issuesList = item.auditReport?.issues.map((issue: AuditIssue, i: number) =>
         `${i + 1}. [${issue.severity.toUpperCase()}] ${issue.category}: ${issue.message}\n   Fix: ${issue.suggested_fix}`
-    ).join('\n\n');
+    ).join('\n\n') || 'No issues found';
 
     const prompt = `Fix these issues in this NCLEX question.
 
 Current:
 Stem: ${item.stem}
-Options: ${item.options?.map((o: any, i: number) => `${i + 1}. ${o.text} ${o.isCorrect ? '(CORRECT)' : ''}`).join('\n')}
+Options: ${item.options?.map((o, i: number) => `${i + 1}. ${o.text} ${o.isCorrect ? '(CORRECT)' : ''}`).join('\n')}
 Rationale: ${item.rationale}
 
 Issues:
 ${issuesList}
 
-Return JSON: {"stem": "...", "options": [{"id": "1", "text": "...", "isCorrect": false}], "rationale": "...", "fixSummary": "..."}`;
+Return JSON: {"stem": "...", "options": [{"id": "1", "text": "...", "isCorrect": false}], "rationale": "..."}`;
 
     try {
         const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
@@ -124,16 +138,9 @@ Return JSON: {"stem": "...", "options": [{"id": "1", "text": "...", "isCorrect":
         const jsonText = jsonMatch ? jsonMatch[1] : text;
         const fixedData = JSON.parse(jsonText);
 
-        return {
-            ...item,
-            ...fixedData,
-            lastUpdatedAt: new Date().toISOString()
-        };
-    } catch (error) {
-        // Return original item if fix fails
-        return {
-            ...item,
-            fixSummary: 'AI fix failed. Manual review required.'
-        };
+        return fixedData;
+    } catch {
+        // Return empty updates if fix fails
+        return {};
     }
 }

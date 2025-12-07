@@ -1,10 +1,9 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import fs from 'fs';
-import path from 'path';
+import { getAllItems, updateItem } from '@/lib/db';
+import type { NclexItemDraft } from '@nclex/shared-api-types';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-const ITEMS_FILE = path.join(process.cwd(), 'data', 'items.json');
 
 interface BulkAuditRequest {
     itemIds: string[];
@@ -14,7 +13,7 @@ interface BulkAuditRequest {
 interface BulkAuditResult {
     itemId: string;
     success: boolean;
-    auditReport?: any;
+    auditReport?: unknown;
     error?: string;
 }
 
@@ -26,9 +25,9 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'No items provided' }, { status: 400 });
         }
 
-        // Load items
-        const itemsData = JSON.parse(fs.readFileSync(ITEMS_FILE, 'utf-8'));
-        const items = itemsData.filter((item: any) => itemIds.includes(item.id));
+        // Load items from database
+        const allItems = await getAllItems();
+        const items = allItems.filter((item) => itemIds.includes(item.id));
 
         const results: BulkAuditResult[] = [];
         const batchSize = 3; // Reduced to avoid rate limits
@@ -40,17 +39,15 @@ export async function POST(req: Request) {
             const batch = items.slice(i, i + batchSize);
 
             const batchResults = await Promise.allSettled(
-                batch.map(async (item: any) => {
+                batch.map(async (item) => {
                     try {
                         const auditReport = await performAIAudit(item, type);
 
-                        // Update item in storage
-                        const updatedItems = itemsData.map((it: any) =>
-                            it.id === item.id
-                                ? { ...it, auditReport, status: 'ai_audit', lastUpdatedAt: new Date().toISOString() }
-                                : it
-                        );
-                        fs.writeFileSync(ITEMS_FILE, JSON.stringify(updatedItems, null, 2));
+                        // Update item in database
+                        await updateItem(item.id, {
+                            auditReport: auditReport as NclexItemDraft['auditReport'],
+                            status: 'ai_audit'
+                        });
 
                         successCount++;
                         return { itemId: item.id, success: true, auditReport };
@@ -94,15 +91,20 @@ export async function POST(req: Request) {
     }
 }
 
-async function performAIAudit(item: any, type: string): Promise<any> {
+interface AuditItem {
+    stem: string;
+    options?: Array<{ text: string; isCorrect?: boolean }>;
+}
+
+async function performAIAudit(item: AuditItem, type: string): Promise<unknown> {
     let prompt = '';
 
     if (type === 'item') {
         prompt = `Analyze this NCLEX question for quality issues.
 
 Stem: ${item.stem}
-Options: ${item.options?.map((o: any, i: number) => `${i + 1}. ${o.text}`).join('\n')}
-Correct: ${item.options?.find((o: any) => o.isCorrect)?.text}
+Options: ${item.options?.map((o, i: number) => `${i + 1}. ${o.text}`).join('\n')}
+Correct: ${item.options?.find((o) => o.isCorrect)?.text}
 
 Return JSON: {"overallRisk": "low|medium|high", "issues": [{"id": "1", "category": "stem_clarity", "severity": "low|medium|high", "message": "...", "suggested_fix": "..."}]}`;
     }
@@ -118,7 +120,7 @@ Return JSON: {"overallRisk": "low|medium|high", "issues": [{"id": "1", "category
         auditReport.timestamp = new Date().toISOString();
 
         return auditReport;
-    } catch (error) {
+    } catch {
         // Fallback audit report
         return {
             overallRisk: 'medium',

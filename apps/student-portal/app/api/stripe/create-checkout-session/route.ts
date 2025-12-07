@@ -1,39 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import Stripe from 'stripe';
-import fs from 'fs';
-import path from 'path';
-import type { StudentUser } from '@nclex/shared-api-types';
+import { supabaseAdmin, TABLES } from '@/lib/supabase';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-    apiVersion: '2024-11-20.acacia',
-});
-
-const USERS_FILE = path.join(process.cwd(), 'data', 'users.json');
-
-function getUsers(): StudentUser[] {
-    try {
-        if (!fs.existsSync(USERS_FILE)) return [];
-        const data = fs.readFileSync(USERS_FILE, 'utf-8');
-        return JSON.parse(data);
-    } catch (error) {
-        console.error('Error reading users:', error);
-        return [];
-    }
-}
-
-function updateUser(userId: string, updates: Partial<StudentUser>) {
-    try {
-        const users = getUsers();
-        const userIndex = users.findIndex(u => u.id === userId);
-        if (userIndex !== -1) {
-            users[userIndex] = { ...users[userIndex], ...updates };
-            fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
-        }
-    } catch (error) {
-        console.error('Error updating user:', error);
-    }
-}
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 export async function POST(req: NextRequest) {
     try {
@@ -52,15 +22,19 @@ export async function POST(req: NextRequest) {
         const userId = (session.user as any).id;
         const userEmail = session.user.email!;
 
-        const users = getUsers();
-        const user = users.find(u => u.id === userId);
+        // Get user from Supabase
+        const { data: user, error: userError } = await supabaseAdmin
+            .from(TABLES.USERS)
+            .select('*')
+            .eq('id', userId)
+            .single();
 
-        if (!user) {
+        if (userError || !user) {
             return NextResponse.json({ error: 'User not found' }, { status: 404 });
         }
 
         // Create or retrieve Stripe customer
-        let customerId = user.stripeCustomerId;
+        let customerId = user.stripe_customer_id;
 
         if (!customerId) {
             const customer = await stripe.customers.create({
@@ -71,8 +45,11 @@ export async function POST(req: NextRequest) {
             });
             customerId = customer.id;
 
-            // Save customer ID to user record
-            updateUser(userId, { stripeCustomerId: customerId });
+            // Save customer ID to user record in Supabase
+            await supabaseAdmin
+                .from(TABLES.USERS)
+                .update({ stripe_customer_id: customerId })
+                .eq('id', userId);
         }
 
         // Create checkout session

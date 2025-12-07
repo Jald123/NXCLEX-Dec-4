@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAllMnemonics, createMnemonic } from '@/lib/storage';
+import { getAllMnemonics, createMnemonic } from '@/lib/db';
 import type { MnemonicDraft } from '@nclex/shared-api-types';
 
 export async function GET() {

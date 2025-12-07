@@ -1,26 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import Stripe from 'stripe';
-import fs from 'fs';
-import path from 'path';
-import type { StudentUser } from '@nclex/shared-api-types';
+import { supabaseAdmin, TABLES } from '@/lib/supabase';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-    apiVersion: '2024-11-20.acacia',
-});
-
-const USERS_FILE = path.join(process.cwd(), 'data', 'users.json');
-
-function getUsers(): StudentUser[] {
-    try {
-        if (!fs.existsSync(USERS_FILE)) return [];
-        const data = fs.readFileSync(USERS_FILE, 'utf-8');
-        return JSON.parse(data);
-    } catch (error) {
-        console.error('Error reading users:', error);
-        return [];
-    }
-}
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 export async function POST(req: NextRequest) {
     try {
@@ -31,10 +14,15 @@ export async function POST(req: NextRequest) {
         }
 
         const userId = (session.user as any).id;
-        const users = getUsers();
-        const user = users.find(u => u.id === userId);
 
-        if (!user || !user.stripeCustomerId) {
+        // Get user from Supabase
+        const { data: user, error: userError } = await supabaseAdmin
+            .from(TABLES.USERS)
+            .select('stripe_customer_id')
+            .eq('id', userId)
+            .single();
+
+        if (userError || !user || !user.stripe_customer_id) {
             return NextResponse.json(
                 { error: 'No subscription found' },
                 { status: 404 }
@@ -43,7 +31,7 @@ export async function POST(req: NextRequest) {
 
         // Create portal session
         const portalSession = await stripe.billingPortal.sessions.create({
-            customer: user.stripeCustomerId,
+            customer: user.stripe_customer_id,
             return_url: `${process.env.NEXTAUTH_URL}/account`,
         });
 

@@ -1,37 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import fs from 'fs';
-import path from 'path';
-import type { StudentUser } from '@nclex/shared-api-types';
+import { supabaseAdmin, TABLES } from '@/lib/supabase';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-    apiVersion: '2024-11-20.acacia',
-});
-
-const USERS_FILE = path.join(process.cwd(), 'data', 'users.json');
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
-function getUsers(): StudentUser[] {
+async function updateUserByCustomerId(customerId: string, updates: Record<string, any>) {
     try {
-        if (!fs.existsSync(USERS_FILE)) return [];
-        const data = fs.readFileSync(USERS_FILE, 'utf-8');
-        return JSON.parse(data);
-    } catch (error) {
-        console.error('Error reading users:', error);
-        return [];
-    }
-}
+        const { error } = await supabaseAdmin
+            .from(TABLES.USERS)
+            .update(updates)
+            .eq('stripe_customer_id', customerId);
 
-function updateUserByCustomerId(customerId: string, updates: Partial<StudentUser>) {
-    try {
-        const users = getUsers();
-        const userIndex = users.findIndex(u => u.stripeCustomerId === customerId);
-        if (userIndex !== -1) {
-            users[userIndex] = { ...users[userIndex], ...updates };
-            fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
-            console.log(`Updated user ${users[userIndex].email}:`, updates);
+        if (error) {
+            console.error(`Error updating user for customer ${customerId}:`, error);
         } else {
-            console.error(`User not found for customer ID: ${customerId}`);
+            console.log(`Updated user for customer ${customerId}:`, updates);
         }
     } catch (error) {
         console.error('Error updating user:', error);
@@ -70,12 +54,12 @@ export async function POST(req: NextRequest) {
                         ? 'annual'
                         : 'monthly';
 
-                    // Update user to paid status
-                    updateUserByCustomerId(customerId, {
-                        subscriptionStatus: 'paid',
-                        stripeSubscriptionId: subscriptionId,
-                        subscriptionPlan: plan,
-                        subscriptionEndDate: new Date(subscription.current_period_end * 1000).toISOString(),
+                    // Update user to paid status in Supabase
+                    await updateUserByCustomerId(customerId, {
+                        subscription_status: 'paid',
+                        stripe_subscription_id: subscriptionId,
+                        subscription_plan: plan,
+                        subscription_end_date: new Date((subscription as any).current_period_end * 1000).toISOString(),
                     });
                 }
                 break;
@@ -90,10 +74,10 @@ export async function POST(req: NextRequest) {
                     ? 'annual'
                     : 'monthly';
 
-                updateUserByCustomerId(customerId, {
-                    subscriptionStatus: subscription.status === 'active' ? 'paid' : 'free_trial',
-                    subscriptionPlan: plan,
-                    subscriptionEndDate: new Date(subscription.current_period_end * 1000).toISOString(),
+                await updateUserByCustomerId(customerId, {
+                    subscription_status: subscription.status === 'active' ? 'paid' : 'free_trial',
+                    subscription_plan: plan,
+                    subscription_end_date: new Date((subscription as any).current_period_end * 1000).toISOString(),
                 });
                 break;
             }
@@ -103,11 +87,11 @@ export async function POST(req: NextRequest) {
                 const customerId = subscription.customer as string;
 
                 // Downgrade user to free trial
-                updateUserByCustomerId(customerId, {
-                    subscriptionStatus: 'free_trial',
-                    stripeSubscriptionId: undefined,
-                    subscriptionPlan: undefined,
-                    subscriptionEndDate: undefined,
+                await updateUserByCustomerId(customerId, {
+                    subscription_status: 'free_trial',
+                    stripe_subscription_id: null,
+                    subscription_plan: null,
+                    subscription_end_date: null,
                 });
                 break;
             }

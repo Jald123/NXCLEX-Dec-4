@@ -29,7 +29,7 @@ const handler = NextAuth({
     session: {
         strategy: "jwt",
     },
-    secret: "nclex-admin-secret-change-this-in-production-min-32-chars",
+    secret: process.env.NEXTAUTH_SECRET || "nclex-admin-secret-change-this-in-production-min-32-chars",
     callbacks: {
         async jwt({ token, user }) {
             if (user) {

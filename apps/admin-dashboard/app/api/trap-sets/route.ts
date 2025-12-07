@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAllTrapSets, createTrapSet } from '@/lib/storage';
+import { getAllTrapSets, createTrapSet } from '@/lib/db';
 import type { TrapSetDraft } from '@nclex/shared-api-types';
 
 export async function GET() {

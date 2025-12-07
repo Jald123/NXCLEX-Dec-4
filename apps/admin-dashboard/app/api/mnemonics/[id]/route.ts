@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getMnemonicById, updateMnemonic, deleteMnemonic } from '@/lib/storage';
+import { getMnemonicById, updateMnemonic, deleteMnemonic } from '@/lib/db';
 
 export async function GET(
     request: NextRequest,

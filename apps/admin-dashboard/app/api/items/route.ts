@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAllItems, createItem } from '@/lib/storage';
+import { getAllItems, createItem } from '@/lib/db';
 import type { NclexItemDraft } from '@nclex/shared-api-types';
 
 export async function GET() {

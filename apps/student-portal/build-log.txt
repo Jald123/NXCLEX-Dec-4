@@ -1,0 +1,584 @@
+﻿
+> student-portal@1.0.0 build
+> next build
+
+  Γû▓ Next.js 14.2.33
+  - Environments: .env.local
+
+   Creating an optimized production build ...
+ Γ£ô Compiled successfully
+   Linting and checking validity of types ...
+
+./app/components/BreathingExercise.tsx
+71:8  Warning: React Hook useEffect has a missing dependency: 'advancePhase'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+
+./app/components/MeditationTimer.tsx
+32:8  Warning: React Hook useEffect has a missing dependency: 'playCompletionSound'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+
+./app/components/MuscleRelaxation.tsx
+40:8  Warning: React Hook useEffect has a missing dependency: 'advancePhase'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+
+./app/components/StudyBreakTimer.tsx
+34:8  Warning: React Hook useEffect has a missing dependency: 'handleTimerComplete'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+
+info  - Need to disable some ESLint rules? Learn more here: https://nextjs.org/docs/basic-features/eslint#disabling-rules
+   Collecting page data ...
+   Generating static pages (0/36) ...
+npm : Error calculating advanced metrics: n 
+[Error]: Dynamic server usage: Route 
+/api/progress/advanced-analytics couldn't be 
+rendered statically because it used `headers`. 
+See more info here: https://nextjs.org/docs/messag
+es/dynamic-server-error
+At line:1 char:166
++ ... m\nodejs\node-v20.11.0-win-x64;$env:PATH"; 
+npm run build 2>&1 | Out-F ...
++                                                
+~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Erro 
+   r calculati...ic-server-error:String) [], Rem  
+  oteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+    at l (C:\Users\haldhaher\Desktop\nclex-ngn-pla
+tform\apps\student-portal\.next\server\chunks\1193
+.js:1:37219)
+    at d (C:\Users\haldhaher\Desktop\nclex-ngn-pla
+tform\apps\student-portal\.next\server\chunks\9224
+.js:25:27724)
+    at s (C:\Users\haldhaher\Desktop\nclex-ngn-pla
+tform\apps\student-portal\.next\server\chunks\9224
+.js:25:20866)
+    at h (C:\Users\haldhaher\Desktop\nclex-ngn-pla
+tform\apps\student-portal\.next\server\app\api\pro
+gress\advanced-analytics\route.js:1:1719)
+    at C:\Users\haldhaher\Desktop\nclex-ngn-platfo
+rm\node_modules\next\dist\compiled\next-server\app
+-route.runtime.prod.js:6:38417
+    at C:\Users\haldhaher\Desktop\nclex-ngn-platfo
+rm\node_modules\next\dist\server\lib\trace\tracer.
+js:140:36
+    at NoopContextManager.with (C:\Users\haldhaher
+\Desktop\nclex-ngn-platform\node_modules\next\dist
+\compiled\@opentelemetry\api\index.js:1:7062)
+    at ContextAPI.with (C:\Users\haldhaher\Desktop
+\nclex-ngn-platform\node_modules\next\dist\compile
+d\@opentelemetry\api\index.js:1:518)
+    at NoopTracer.startActiveSpan (C:\Users\haldha
+her\Desktop\nclex-ngn-platform\node_modules\next\d
+ist\compiled\@opentelemetry\api\index.js:1:18093)
+    at ProxyTracer.startActiveSpan (C:\Users\haldh
+aher\Desktop\nclex-ngn-platform\node_modules\next\
+dist\compiled\@opentelemetry\api\index.js:1:18854)
+ {
+  description: "Route 
+/api/progress/advanced-analytics couldn't be 
+rendered statically because it used `headers`. 
+See more info here: https://nextjs.org/docs/messag
+es/dynamic-server-error",
+  digest: 'DYNAMIC_SERVER_USAGE'
+}
+Error calculating enhanced metrics: n [Error]: 
+Dynamic server usage: Route 
+/api/progress/enhanced-stats couldn't be rendered 
+statically because it used `headers`. See more 
+info here: https://nextjs.org/docs/messages/dynami
+c-server-error
+    at l (C:\Users\haldhaher\Desktop\nclex-ngn-pla
+tform\apps\student-portal\.next\server\chunks\1193
+.js:1:37219)
+    at d (C:\Users\haldhaher\Desktop\nclex-ngn-pla
+tform\apps\student-portal\.next\server\chunks\9224
+.js:25:27724)
+    at s (C:\Users\haldhaher\Desktop\nclex-ngn-pla
+tform\apps\student-portal\.next\server\chunks\9224
+.js:25:20866)
+    at g (C:\Users\haldhaher\Desktop\nclex-ngn-pla
+tform\apps\student-portal\.next\server\app\api\pro
+gress\enhanced-stats\route.js:1:1465)
+    at C:\Users\haldhaher\Desktop\nclex-ngn-platfo
+rm\node_modules\next\dist\compiled\next-server\app
+-route.runtime.prod.js:6:38417
+    at C:\Users\haldhaher\Desktop\nclex-ngn-platfo
+rm\node_modules\next\dist\server\lib\trace\tracer.
+js:140:36
+    at NoopContextManager.with (C:\Users\haldhaher
+\Desktop\nclex-ngn-platform\node_modules\next\dist
+\compiled\@opentelemetry\api\index.js:1:7062)
+    at ContextAPI.with (C:\Users\haldhaher\Desktop
+\nclex-ngn-platform\node_modules\next\dist\compile
+d\@opentelemetry\api\index.js:1:518)
+    at NoopTracer.startActiveSpan (C:\Users\haldha
+her\Desktop\nclex-ngn-platform\node_modules\next\d
+ist\compiled\@opentelemetry\api\index.js:1:18093)
+    at ProxyTracer.startActiveSpan (C:\Users\haldh
+aher\Desktop\nclex-ngn-platform\node_modules\next\
+dist\compiled\@opentelemetry\api\index.js:1:18854)
+ {
+  description: "Route 
+/api/progress/enhanced-stats couldn't be rendered 
+statically because it used `headers`. See more 
+info here: https://nextjs.org/docs/messages/dynami
+c-server-error",
+  digest: 'DYNAMIC_SERVER_USAGE'
+}
+Error fetching history: n [Error]: Dynamic server 
+usage: Route /api/progress/history couldn't be 
+rendered statically because it used `headers`. 
+See more info here: https://nextjs.org/docs/messag
+es/dynamic-server-error
+    at l (C:\Users\haldhaher\Desktop\nclex-ngn-pla
+tform\apps\student-portal\.next\server\chunks\1193
+.js:1:37219)
+    at d (C:\Users\haldhaher\Desktop\nclex-ngn-pla
+tform\apps\student-portal\.next\server\chunks\9224
+.js:25:27724)
+    at s (C:\Users\haldhaher\Desktop\nclex-ngn-pla
+tform\apps\student-portal\.next\server\chunks\9224
+.js:25:20866)
+    at d (C:\Users\haldhaher\Desktop\nclex-ngn-pla
+tform\apps\student-portal\.next\server\app\api\pro
+gress\history\route.js:1:1397)
+    at C:\Users\haldhaher\Desktop\nclex-ngn-platfo
+rm\node_modules\next\dist\compiled\next-server\app
+-route.runtime.prod.js:6:38417
+    at C:\Users\haldhaher\Desktop\nclex-ngn-platfo
+rm\node_modules\next\dist\server\lib\trace\tracer.
+js:140:36
+    at NoopContextManager.with (C:\Users\haldhaher
+\Desktop\nclex-ngn-platform\node_modules\next\dist
+\compiled\@opentelemetry\api\index.js:1:7062)
+    at ContextAPI.with (C:\Users\haldhaher\Desktop
+\nclex-ngn-platform\node_modules\next\dist\compile
+d\@opentelemetry\api\index.js:1:518)
+    at NoopTracer.startActiveSpan (C:\Users\haldha
+her\Desktop\nclex-ngn-platform\node_modules\next\d
+ist\compiled\@opentelemetry\api\index.js:1:18093)
+    at ProxyTracer.startActiveSpan (C:\Users\haldh
+aher\Desktop\nclex-ngn-platform\node_modules\next\
+dist\compiled\@opentelemetry\api\index.js:1:18854)
+ {
+  description: "Route /api/progress/history 
+couldn't be rendered statically because it used 
+`headers`. See more info here: https://nextjs.org/
+docs/messages/dynamic-server-error",
+  digest: 'DYNAMIC_SERVER_USAGE'
+}
+Error generating recommendations: n [Error]: 
+Dynamic server usage: Route 
+/api/practice/recommended couldn't be rendered 
+statically because it used `headers`. See more 
+info here: https://nextjs.org/docs/messages/dynami
+c-server-error
+    at l (C:\Users\haldhaher\Desktop\nclex-ngn-pla
+tform\apps\student-portal\.next\server\chunks\1193
+.js:1:37219)
+    at d (C:\Users\haldhaher\Desktop\nclex-ngn-pla
+tform\apps\student-portal\.next\server\chunks\9224
+.js:25:27724)
+    at s (C:\Users\haldhaher\Desktop\nclex-ngn-pla
+tform\apps\student-portal\.next\server\chunks\9224
+.js:25:20866)
+    at h (C:\Users\haldhaher\Desktop\nclex-ngn-pla
+tform\apps\student-portal\.next\server\app\api\pra
+ctice\recommended\route.js:1:1720)
+    at C:\Users\haldhaher\Desktop\nclex-ngn-platfo
+rm\node_modules\next\dist\compiled\next-server\app
+-route.runtime.prod.js:6:38417
+    at C:\Users\haldhaher\Desktop\nclex-ngn-platfo
+rm\node_modules\next\dist\server\lib\trace\tracer.
+js:140:36
+    at NoopContextManager.with (C:\Users\haldhaher
+\Desktop\nclex-ngn-platform\node_modules\next\dist
+\compiled\@opentelemetry\api\index.js:1:7062)
+    at ContextAPI.with (C:\Users\haldhaher\Desktop
+\nclex-ngn-platform\node_modules\next\dist\compile
+d\@opentelemetry\api\index.js:1:518)
+    at NoopTracer.startActiveSpan (C:\Users\haldha
+her\Desktop\nclex-ngn-platform\node_modules\next\d
+ist\compiled\@opentelemetry\api\index.js:1:18093)
+    at ProxyTracer.startActiveSpan (C:\Users\haldh
+aher\Desktop\nclex-ngn-platform\node_modules\next\
+dist\compiled\@opentelemetry\api\index.js:1:18854)
+ {
+  description: "Route /api/practice/recommended 
+couldn't be rendered statically because it used 
+`headers`. See more info here: https://nextjs.org/
+docs/messages/dynamic-server-error",
+  digest: 'DYNAMIC_SERVER_USAGE'
+}
+Error fetching flagged questions: n [Error]: 
+Dynamic server usage: Route 
+/api/questions/flagged couldn't be rendered 
+statically because it used `headers`. See more 
+info here: https://nextjs.org/docs/messages/dynami
+c-server-error
+    at l (C:\Users\haldhaher\Desktop\nclex-ngn-pla
+tform\apps\student-portal\.next\server\chunks\1193
+.js:1:37219)
+    at d (C:\Users\haldhaher\Desktop\nclex-ngn-pla
+tform\apps\student-portal\.next\server\chunks\9224
+.js:25:27724)
+    at s (C:\Users\haldhaher\Desktop\nclex-ngn-pla
+tform\apps\student-portal\.next\server\chunks\9224
+.js:25:20866)
+    at x (C:\Users\haldhaher\Desktop\nclex-ngn-pla
+tform\apps\student-portal\.next\server\app\api\que
+stions\flagged\route.js:1:1393)
+    at C:\Users\haldhaher\Desktop\nclex-ngn-platfo
+rm\node_modules\next\dist\compiled\next-server\app
+-route.runtime.prod.js:6:38417
+    at C:\Users\haldhaher\Desktop\nclex-ngn-platfo
+rm\node_modules\next\dist\server\lib\trace\tracer.
+js:140:36
+    at NoopContextManager.with (C:\Users\haldhaher
+\Desktop\nclex-ngn-platform\node_modules\next\dist
+\compiled\@opentelemetry\api\index.js:1:7062)
+    at ContextAPI.with (C:\Users\haldhaher\Desktop
+\nclex-ngn-platform\node_modules\next\dist\compile
+d\@opentelemetry\api\index.js:1:518)
+    at NoopTracer.startActiveSpan (C:\Users\haldha
+her\Desktop\nclex-ngn-platform\node_modules\next\d
+ist\compiled\@opentelemetry\api\index.js:1:18093)
+    at ProxyTracer.startActiveSpan (C:\Users\haldh
+aher\Desktop\nclex-ngn-platform\node_modules\next\
+dist\compiled\@opentelemetry\api\index.js:1:18854)
+ {
+  description: "Route /api/questions/flagged 
+couldn't be rendered statically because it used 
+`headers`. See more info here: https://nextjs.org/
+docs/messages/dynamic-server-error",
+  digest: 'DYNAMIC_SERVER_USAGE'
+}
+Error calculating stats: n [Error]: Dynamic 
+server usage: Route /api/progress/stats couldn't 
+be rendered statically because it used `headers`. 
+See more info here: https://nextjs.org/docs/messag
+es/dynamic-server-error
+    at l (C:\Users\haldhaher\Desktop\nclex-ngn-pla
+tform\apps\student-portal\.next\server\chunks\1193
+.js:1:37219)
+    at d (C:\Users\haldhaher\Desktop\nclex-ngn-pla
+tform\apps\student-portal\.next\server\chunks\9224
+.js:25:27724)
+    at s (C:\Users\haldhaher\Desktop\nclex-ngn-pla
+tform\apps\student-portal\.next\server\chunks\9224
+.js:25:20866)
+    at m (C:\Users\haldhaher\Desktop\nclex-ngn-pla
+tform\apps\student-portal\.next\server\app\api\pro
+gress\stats\route.js:1:1463)
+    at C:\Users\haldhaher\Desktop\nclex-ngn-platfo
+rm\node_modules\next\dist\compiled\next-server\app
+-route.runtime.prod.js:6:38417
+    at C:\Users\haldhaher\Desktop\nclex-ngn-platfo
+rm\node_modules\next\dist\server\lib\trace\tracer.
+js:140:36
+    at NoopContextManager.with (C:\Users\haldhaher
+\Desktop\nclex-ngn-platform\node_modules\next\dist
+\compiled\@opentelemetry\api\index.js:1:7062)
+    at ContextAPI.with (C:\Users\haldhaher\Desktop
+\nclex-ngn-platform\node_modules\next\dist\compile
+d\@opentelemetry\api\index.js:1:518)
+    at NoopTracer.startActiveSpan (C:\Users\haldha
+her\Desktop\nclex-ngn-platform\node_modules\next\d
+ist\compiled\@opentelemetry\api\index.js:1:18093)
+    at ProxyTracer.startActiveSpan (C:\Users\haldh
+aher\Desktop\nclex-ngn-platform\node_modules\next\
+dist\compiled\@opentelemetry\api\index.js:1:18854)
+ {
+  description: "Route /api/progress/stats 
+couldn't be rendered statically because it used 
+`headers`. See more info here: https://nextjs.org/
+docs/messages/dynamic-server-error",
+  digest: 'DYNAMIC_SERVER_USAGE'
+}
+Failed to fetch questions: n [Error]: Dynamic 
+server usage: Route /api/questions couldn't be 
+rendered statically because it used `headers`. 
+See more info here: https://nextjs.org/docs/messag
+es/dynamic-server-error
+    at l (C:\Users\haldhaher\Desktop\nclex-ngn-pla
+tform\apps\student-portal\.next\server\chunks\1193
+.js:1:37219)
+    at d (C:\Users\haldhaher\Desktop\nclex-ngn-pla
+tform\apps\student-portal\.next\server\chunks\9224
+.js:25:27724)
+    at s (C:\Users\haldhaher\Desktop\nclex-ngn-pla
+tform\apps\student-portal\.next\server\chunks\9224
+.js:25:20866)
+    at l (C:\Users\haldhaher\Desktop\nclex-ngn-pla
+tform\apps\student-portal\.next\server\app\api\que
+stions\route.js:1:1318)
+    at C:\Users\haldhaher\Desktop\nclex-ngn-platfo
+rm\node_modules\next\dist\compiled\next-server\app
+-route.runtime.prod.js:6:38417
+    at C:\Users\haldhaher\Desktop\nclex-ngn-platfo
+rm\node_modules\next\dist\server\lib\trace\tracer.
+js:140:36
+    at NoopContextManager.with (C:\Users\haldhaher
+\Desktop\nclex-ngn-platform\node_modules\next\dist
+\compiled\@opentelemetry\api\index.js:1:7062)
+    at ContextAPI.with (C:\Users\haldhaher\Desktop
+\nclex-ngn-platform\node_modules\next\dist\compile
+d\@opentelemetry\api\index.js:1:518)
+    at NoopTracer.startActiveSpan (C:\Users\haldha
+her\Desktop\nclex-ngn-platform\node_modules\next\d
+ist\compiled\@opentelemetry\api\index.js:1:18093)
+    at ProxyTracer.startActiveSpan (C:\Users\haldh
+aher\Desktop\nclex-ngn-platform\node_modules\next\
+dist\compiled\@opentelemetry\api\index.js:1:18854)
+ {
+  description: "Route /api/questions couldn't be 
+rendered statically because it used `headers`. 
+See more info here: https://nextjs.org/docs/messag
+es/dynamic-server-error",
+  digest: 'DYNAMIC_SERVER_USAGE'
+}
+   Generating static pages (9/36) 
+Error calculating trend data: n [Error]: Dynamic 
+server usage: Route /api/progress/trends couldn't 
+be rendered statically because it used `headers`. 
+See more info here: https://nextjs.org/docs/messag
+es/dynamic-server-error
+    at l (C:\Users\haldhaher\Desktop\nclex-ngn-pla
+tform\apps\student-portal\.next\server\chunks\1193
+.js:1:37219)
+    at d (C:\Users\haldhaher\Desktop\nclex-ngn-pla
+tform\apps\student-portal\.next\server\chunks\9224
+.js:25:27724)
+    at s (C:\Users\haldhaher\Desktop\nclex-ngn-pla
+tform\apps\student-portal\.next\server\chunks\9224
+.js:25:20866)
+    at x (C:\Users\haldhaher\Desktop\nclex-ngn-pla
+tform\apps\student-portal\.next\server\app\api\pro
+gress\trends\route.js:1:1396)
+    at C:\Users\haldhaher\Desktop\nclex-ngn-platfo
+rm\node_modules\next\dist\compiled\next-server\app
+-route.runtime.prod.js:6:38417
+    at C:\Users\haldhaher\Desktop\nclex-ngn-platfo
+rm\node_modules\next\dist\server\lib\trace\tracer.
+js:140:36
+    at NoopContextManager.with (C:\Users\haldhaher
+\Desktop\nclex-ngn-platform\node_modules\next\dist
+\compiled\@opentelemetry\api\index.js:1:7062)
+    at ContextAPI.with (C:\Users\haldhaher\Desktop
+\nclex-ngn-platform\node_modules\next\dist\compile
+d\@opentelemetry\api\index.js:1:518)
+    at NoopTracer.startActiveSpan (C:\Users\haldha
+her\Desktop\nclex-ngn-platform\node_modules\next\d
+ist\compiled\@opentelemetry\api\index.js:1:18093)
+    at ProxyTracer.startActiveSpan (C:\Users\haldh
+aher\Desktop\nclex-ngn-platform\node_modules\next\
+dist\compiled\@opentelemetry\api\index.js:1:18854)
+ {
+  description: "Route /api/progress/trends 
+couldn't be rendered statically because it used 
+`headers`. See more info here: https://nextjs.org/
+docs/messages/dynamic-server-error",
+  digest: 'DYNAMIC_SERVER_USAGE'
+}
+Error fetching wellness stats: n [Error]: Dynamic 
+server usage: Route /api/wellness/stats couldn't 
+be rendered statically because it used `headers`. 
+See more info here: https://nextjs.org/docs/messag
+es/dynamic-server-error
+    at l (C:\Users\haldhaher\Desktop\nclex-ngn-pla
+tform\apps\student-portal\.next\server\chunks\1193
+.js:1:37219)
+    at d (C:\Users\haldhaher\Desktop\nclex-ngn-pla
+tform\apps\student-portal\.next\server\chunks\9224
+.js:25:27724)
+    at s (C:\Users\haldhaher\Desktop\nclex-ngn-pla
+tform\apps\student-portal\.next\server\chunks\9224
+.js:25:20866)
+    at x (C:\Users\haldhaher\Desktop\nclex-ngn-pla
+tform\apps\student-portal\.next\server\app\api\wel
+lness\stats\route.js:1:1409)
+    at C:\Users\haldhaher\Desktop\nclex-ngn-platfo
+rm\node_modules\next\dist\compiled\next-server\app
+-route.runtime.prod.js:6:38417
+    at C:\Users\haldhaher\Desktop\nclex-ngn-platfo
+rm\node_modules\next\dist\server\lib\trace\tracer.
+js:140:36
+    at NoopContextManager.with (C:\Users\haldhaher
+\Desktop\nclex-ngn-platform\node_modules\next\dist
+\compiled\@opentelemetry\api\index.js:1:7062)
+    at ContextAPI.with (C:\Users\haldhaher\Desktop
+\nclex-ngn-platform\node_modules\next\dist\compile
+d\@opentelemetry\api\index.js:1:518)
+    at NoopTracer.startActiveSpan (C:\Users\haldha
+her\Desktop\nclex-ngn-platform\node_modules\next\d
+ist\compiled\@opentelemetry\api\index.js:1:18093)
+    at ProxyTracer.startActiveSpan (C:\Users\haldh
+aher\Desktop\nclex-ngn-platform\node_modules\next\
+dist\compiled\@opentelemetry\api\index.js:1:18854)
+ {
+  description: "Route /api/wellness/stats 
+couldn't be rendered statically because it used 
+`headers`. See more info here: https://nextjs.org/
+docs/messages/dynamic-server-error",
+  digest: 'DYNAMIC_SERVER_USAGE'
+}
+   Generating static pages (18/36) 
+ReferenceError: location is not defined
+    at C:\Users\haldhaher\Desktop\nclex-ngn-platfo
+rm\apps\student-portal\.next\server\chunks\8881.js
+:1:26832
+    at C:\Users\haldhaher\Desktop\nclex-ngn-platfo
+rm\apps\student-portal\.next\server\chunks\8881.js
+:1:27697
+    at t.startTransition (C:\Users\haldhaher\Deskt
+op\nclex-ngn-platform\node_modules\next\dist\compi
+led\next-server\app-page.runtime.prod.js:12:108991
+)
+    at Object.push (C:\Users\haldhaher\Desktop\ncl
+ex-ngn-platform\apps\student-portal\.next\server\c
+hunks\8881.js:1:27685)
+    at o (C:\Users\haldhaher\Desktop\nclex-ngn-pla
+tform\apps\student-portal\.next\server\app\account
+\page.js:1:5726)
+    at nj (C:\Users\haldhaher\Desktop\nclex-ngn-pl
+atform\node_modules\next\dist\compiled\next-server
+\app-page.runtime.prod.js:12:46252)
+    at nM (C:\Users\haldhaher\Desktop\nclex-ngn-pl
+atform\node_modules\next\dist\compiled\next-server
+\app-page.runtime.prod.js:12:47572)
+    at nN (C:\Users\haldhaher\Desktop\nclex-ngn-pl
+atform\node_modules\next\dist\compiled\next-server
+\app-page.runtime.prod.js:12:64547)
+    at nI (C:\Users\haldhaher\Desktop\nclex-ngn-pl
+atform\node_modules\next\dist\compiled\next-server
+\app-page.runtime.prod.js:12:47011)
+    at nM (C:\Users\haldhaher\Desktop\nclex-ngn-pl
+atform\node_modules\next\dist\compiled\next-server
+\app-page.runtime.prod.js:12:47718)
+ Γ¿» useSearchParams() should be wrapped in a 
+suspense boundary at page "/checkout/success". 
+Read more: https://nextjs.org/docs/messages/missin
+g-suspense-with-csr-bailout
+    at a (C:\Users\haldhaher\Desktop\nclex-ngn-pla
+tform\apps\student-portal\.next\server\chunks\8881
+.js:1:31370)
+    at c (C:\Users\haldhaher\Desktop\nclex-ngn-pla
+tform\apps\student-portal\.next\server\chunks\8881
+.js:1:42351)
+    at o (C:\Users\haldhaher\Desktop\nclex-ngn-pla
+tform\apps\student-portal\.next\server\app\checkou
+t\success\page.js:1:1968)
+    at nj (C:\Users\haldhaher\Desktop\nclex-ngn-pl
+atform\node_modules\next\dist\compiled\next-server
+\app-page.runtime.prod.js:12:46252)
+    at nM (C:\Users\haldhaher\Desktop\nclex-ngn-pl
+atform\node_modules\next\dist\compiled\next-server
+\app-page.runtime.prod.js:12:47572)
+    at nN (C:\Users\haldhaher\Desktop\nclex-ngn-pl
+atform\node_modules\next\dist\compiled\next-server
+\app-page.runtime.prod.js:12:64547)
+    at nI (C:\Users\haldhaher\Desktop\nclex-ngn-pl
+atform\node_modules\next\dist\compiled\next-server
+\app-page.runtime.prod.js:12:47011)
+    at nM (C:\Users\haldhaher\Desktop\nclex-ngn-pl
+atform\node_modules\next\dist\compiled\next-server
+\app-page.runtime.prod.js:12:47718)
+    at nM (C:\Users\haldhaher\Desktop\nclex-ngn-pl
+atform\node_modules\next\dist\compiled\next-server
+\app-page.runtime.prod.js:12:61547)
+    at nN (C:\Users\haldhaher\Desktop\nclex-ngn-pl
+atform\node_modules\next\dist\compiled\next-server
+\app-page.runtime.prod.js:12:64547)
+
+Error occurred prerendering page 
+"/checkout/success". Read more: 
+https://nextjs.org/docs/messages/prerender-error
+
+ Γ¿» useSearchParams() should be wrapped in a 
+suspense boundary at page "/session-complete". 
+Read more: https://nextjs.org/docs/messages/missin
+g-suspense-with-csr-bailout
+    at a (C:\Users\haldhaher\Desktop\nclex-ngn-pla
+tform\apps\student-portal\.next\server\chunks\8881
+.js:1:31370)
+    at c (C:\Users\haldhaher\Desktop\nclex-ngn-pla
+tform\apps\student-portal\.next\server\chunks\8881
+.js:1:42351)
+    at c (C:\Users\haldhaher\Desktop\nclex-ngn-pla
+tform\apps\student-portal\.next\server\app\session
+-complete\page.js:1:1947)
+    at nj (C:\Users\haldhaher\Desktop\nclex-ngn-pl
+atform\node_modules\next\dist\compiled\next-server
+\app-page.runtime.prod.js:12:46252)
+    at nM (C:\Users\haldhaher\Desktop\nclex-ngn-pl
+atform\node_modules\next\dist\compiled\next-server
+\app-page.runtime.prod.js:12:47572)
+    at nN (C:\Users\haldhaher\Desktop\nclex-ngn-pl
+atform\node_modules\next\dist\compiled\next-server
+\app-page.runtime.prod.js:12:64547)
+    at nI (C:\Users\haldhaher\Desktop\nclex-ngn-pl
+atform\node_modules\next\dist\compiled\next-server
+\app-page.runtime.prod.js:12:47011)
+    at nM (C:\Users\haldhaher\Desktop\nclex-ngn-pl
+atform\node_modules\next\dist\compiled\next-server
+\app-page.runtime.prod.js:12:47718)
+    at nM (C:\Users\haldhaher\Desktop\nclex-ngn-pl
+atform\node_modules\next\dist\compiled\next-server
+\app-page.runtime.prod.js:12:61547)
+    at nN (C:\Users\haldhaher\Desktop\nclex-ngn-pl
+atform\node_modules\next\dist\compiled\next-server
+\app-page.runtime.prod.js:12:64547)
+
+Error occurred prerendering page 
+"/session-complete". Read more: 
+https://nextjs.org/docs/messages/prerender-error
+
+   Generating static pages (27/36) 
+ Γ¿» useSearchParams() should be wrapped in a 
+suspense boundary at page "/results". Read more: h
+ttps://nextjs.org/docs/messages/missing-suspense-w
+ith-csr-bailout
+    at a (C:\Users\haldhaher\Desktop\nclex-ngn-pla
+tform\apps\student-portal\.next\server\chunks\8881
+.js:1:31370)
+    at c (C:\Users\haldhaher\Desktop\nclex-ngn-pla
+tform\apps\student-portal\.next\server\chunks\8881
+.js:1:42351)
+    at o (C:\Users\haldhaher\Desktop\nclex-ngn-pla
+tform\apps\student-portal\.next\server\app\results
+\page.js:1:1865)
+    at nj (C:\Users\haldhaher\Desktop\nclex-ngn-pl
+atform\node_modules\next\dist\compiled\next-server
+\app-page.runtime.prod.js:12:46252)
+    at nM (C:\Users\haldhaher\Desktop\nclex-ngn-pl
+atform\node_modules\next\dist\compiled\next-server
+\app-page.runtime.prod.js:12:47572)
+    at nN (C:\Users\haldhaher\Desktop\nclex-ngn-pl
+atform\node_modules\next\dist\compiled\next-server
+\app-page.runtime.prod.js:12:64547)
+    at nI (C:\Users\haldhaher\Desktop\nclex-ngn-pl
+atform\node_modules\next\dist\compiled\next-server
+\app-page.runtime.prod.js:12:47011)
+    at nM (C:\Users\haldhaher\Desktop\nclex-ngn-pl
+atform\node_modules\next\dist\compiled\next-server
+\app-page.runtime.prod.js:12:47718)
+    at nM (C:\Users\haldhaher\Desktop\nclex-ngn-pl
+atform\node_modules\next\dist\compiled\next-server
+\app-page.runtime.prod.js:12:61547)
+    at nN (C:\Users\haldhaher\Desktop\nclex-ngn-pl
+atform\node_modules\next\dist\compiled\next-server
+\app-page.runtime.prod.js:12:64547)
+
+Error occurred prerendering page "/results". Read 
+more: 
+https://nextjs.org/docs/messages/prerender-error
+
+ Γ£ô Generating static pages (36/36)
+
+> Export encountered errors on following paths:
+	/checkout/success/page: /checkout/success
+	/results/page: /results
+	/session-complete/page: /session-complete
+npm ERR! Lifecycle script `build` failed with 
+error: 
+npm ERR! Error: command failed 
+npm ERR!   in workspace: student-portal@1.0.0 
+npm ERR!   at location: C:\Users\haldhaher\Desktop
+\nclex-ngn-platform\apps\student-portal 

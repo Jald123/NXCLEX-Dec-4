@@ -335,7 +335,7 @@ export default function EnhancedProgressPage() {
                     {/* Study Calendar */}
                     <Card className="p-6">
                         <h2 className="text-2xl font-semibold text-gray-900 mb-4">Study Activity (Last 12 Weeks)</h2>
-                        <StudyCalendar data={trends} />
+                        <StudyCalendar data={trends.map(t => ({ date: t.date, count: t.attempted, accuracy: t.accuracy }))} />
                     </Card>
                 </>
             )}
