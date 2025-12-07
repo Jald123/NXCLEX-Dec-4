@@ -1,0 +1,19 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    html {
+        scroll-behavior: smooth;
+    }
+}
+
+@layer utilities {
+    .text-gradient {
+        @apply bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-cyan-600;
+    }
+
+    .glass {
+        @apply bg-white/80 backdrop-blur-lg border border-white/20 shadow-xl;
+    }
+}

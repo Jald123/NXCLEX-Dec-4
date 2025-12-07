@@ -1,0 +1,64 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model NclexItem {
+  id                 String   @id @default(cuid())
+  entryMode          String   // 'ai_generated' | 'manual_entered'
+  status             String   // ItemStatus enum values
+  questionType       String
+  stem               String
+  options            String   // JSON stringified QuestionOption[]
+  rationale          String
+  createdBy          String
+  createdAt          DateTime @default(now())
+  lastUpdatedAt      DateTime @updatedAt
+  presentationStyle  String?  // 'standard' | 'ehr_case'
+  caseId             String?
+  auditReport        String?  // JSON stringified audit report
+  
+  @@index([status])
+  @@index([caseId])
+  @@index([createdAt])
+}
+
+model TrapSet {
+  id              String   @id @default(cuid())
+  itemId          String   // FK to NclexItem
+  entryMode       String
+  status          String
+  stemSnippet     String
+  options         String   // JSON stringified
+  trapOptionsIds  String   // JSON stringified array
+  createdBy       String
+  createdAt       DateTime @default(now())
+  lastUpdatedAt   DateTime @updatedAt
+  auditReport     String?  // JSON stringified
+  
+  @@index([itemId])
+  @@index([status])
+}
+
+model Mnemonic {
+  id             String   @id @default(cuid())
+  concept        String
+  entryMode      String
+  status         String
+  mnemonicText   String
+  explanation    String
+  createdBy      String
+  createdAt      DateTime @default(now())
+  lastUpdatedAt  DateTime @updatedAt
+  auditReport    String?  // JSON stringified
+  
+  @@index([status])
+  @@index([concept])
+}

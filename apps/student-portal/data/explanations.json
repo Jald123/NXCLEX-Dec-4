@@ -1,0 +1,34 @@
+[
+  {
+    "questionId": "item-1764738025371",
+    "correctAnswerRationale": "Administering oxygen is the priority intervention for a client experiencing chest pain. Oxygen helps reduce myocardial oxygen demand and can alleviate ischemic pain. This addresses the immediate physiological need and follows the ABC (Airway, Breathing, Circulation) priority framework.",
+    "distractorRationales": [
+      {
+        "optionId": "1",
+        "rationale": "While obtaining vital signs is important, it is not the priority action. The client's immediate need for oxygen takes precedence over assessment data collection."
+      },
+      {
+        "optionId": "2",
+        "rationale": "Administering pain medication may be appropriate after oxygen is provided, but addressing the underlying cause (potential myocardial ischemia) with oxygen is the priority."
+      },
+      {
+        "optionId": "4",
+        "rationale": "Notifying the physician is important but should occur after initial interventions. The nurse should first address the client's immediate physiological needs."
+      }
+    ],
+    "keyConcepts": [
+      "ABC priority framework (Airway, Breathing, Circulation)",
+      "Myocardial ischemia and oxygen therapy",
+      "Nursing process: Implementation before further assessment",
+      "Chest pain management in acute care settings"
+    ],
+    "references": [
+      "Lewis's Medical-Surgical Nursing, 11th Edition, Chapter 33: Coronary Artery Disease",
+      "NCSBN NCLEX-RN Test Plan: Physiological Adaptation"
+    ],
+    "nursingProcess": "implementation",
+    "clientNeed": "Physiological Adaptation",
+    "difficulty": "medium",
+    "clinicalPearl": "Remember MONA for chest pain: Morphine, Oxygen, Nitroglycerin, Aspirin. Oxygen is often the first intervention you can provide independently."
+  }
+]

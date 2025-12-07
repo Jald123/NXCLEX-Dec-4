@@ -1,0 +1,11 @@
+[
+  {
+    "id": "user-1764759904915",
+    "email": "test@student.com",
+    "passwordHash": "$2b$10$QfV/AT/02Q/xZO4Dl1opoeChQyQYHHcMbxqtvxqwSfz.a2y4mlovq",
+    "name": "Test Student",
+    "subscriptionStatus": "free_trial",
+    "createdAt": "2025-12-03T11:05:04.916Z",
+    "lastLoginAt": "2025-12-04T06:39:38.606Z"
+  }
+]
