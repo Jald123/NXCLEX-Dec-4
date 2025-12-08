@@ -26,8 +26,11 @@ const handler = NextAuth({
             },
             async authorize(credentials) {
                 if (!credentials?.email || !credentials?.password) {
+                    console.log('[Auth] Missing credentials');
                     return null;
                 }
+
+                console.log('[Auth] Attempting login for:', credentials.email.toLowerCase());
 
                 // Query user from Supabase
                 const { data: user, error } = await supabaseAdmin
@@ -36,14 +39,24 @@ const handler = NextAuth({
                     .eq('email', credentials.email.toLowerCase())
                     .single();
 
-                if (error || !user) {
+                if (error) {
+                    console.log('[Auth] Supabase error:', error.message);
                     return null;
                 }
+
+                if (!user) {
+                    console.log('[Auth] User not found');
+                    return null;
+                }
+
+                console.log('[Auth] User found:', user.email, 'ID:', user.id);
 
                 const isValidPassword = await bcrypt.compare(
                     credentials.password,
                     user.password_hash
                 );
+
+                console.log('[Auth] Password valid:', isValidPassword);
 
                 if (!isValidPassword) {
                     return null;
