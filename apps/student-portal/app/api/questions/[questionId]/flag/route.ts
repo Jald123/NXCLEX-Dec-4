@@ -1,40 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import fs from 'fs';
-import path from 'path';
+import { supabaseAdmin } from '@/lib/supabase';
 import type { QuestionFlag } from '@nclex/shared-api-types';
-
-const FLAGS_FILE = path.join(process.cwd(), 'data', 'flags.json');
-
-function getFlags(): QuestionFlag[] {
-    try {
-        if (!fs.existsSync(FLAGS_FILE)) {
-            const dir = path.dirname(FLAGS_FILE);
-            if (!fs.existsSync(dir)) {
-                fs.mkdirSync(dir, { recursive: true });
-            }
-            fs.writeFileSync(FLAGS_FILE, '[]', 'utf-8');
-            return [];
-        }
-        const data = fs.readFileSync(FLAGS_FILE, 'utf-8');
-        return JSON.parse(data);
-    } catch (error) {
-        console.error('Error reading flags:', error);
-        return [];
-    }
-}
-
-function saveFlags(flags: QuestionFlag[]) {
-    try {
-        const dir = path.dirname(FLAGS_FILE);
-        if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true });
-        }
-        fs.writeFileSync(FLAGS_FILE, JSON.stringify(flags, null, 2), 'utf-8');
-    } catch (error) {
-        console.error('Error saving flags:', error);
-    }
-}
 
 // POST: Flag a question
 export async function POST(
@@ -50,26 +17,52 @@ export async function POST(
 
         const userId = (session.user as any).id;
         const body = await req.json();
-        const { reason } = body;
+        const { reason } = body; // Reason not currently supported by DB schema
 
-        const flags = getFlags();
+        // Attempt insert. Unique constraint (user_id, question_id) will prevent duplicates.
+        // We can ignore duplicates or return existing.
 
-        // Check if already flagged
-        const existing = flags.find(f => f.userId === userId && f.questionId === params.questionId);
+        // First check if exists to return nice message
+        const { data: existing } = await supabaseAdmin
+            .from('question_flags')
+            .select('*')
+            .eq('user_id', userId)
+            .eq('question_id', params.questionId)
+            .single();
+
         if (existing) {
-            return NextResponse.json({ message: 'Already flagged', flag: existing });
+            return NextResponse.json({
+                message: 'Already flagged', flag: {
+                    id: existing.id,
+                    userId: existing.user_id,
+                    questionId: existing.question_id,
+                    flaggedAt: existing.created_at
+                }
+            });
+        }
+
+        const { data, error } = await supabaseAdmin
+            .from('question_flags')
+            .insert({
+                user_id: userId,
+                question_id: params.questionId,
+                // created_at defaults to NOW()
+            })
+            .select()
+            .single();
+
+        if (error) {
+            console.error('Supabase error flagging question:', error);
+            throw new Error(error.message);
         }
 
         const newFlag: QuestionFlag = {
-            id: `flag-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-            userId,
-            questionId: params.questionId,
-            flaggedAt: new Date().toISOString(),
-            reason
+            id: data.id,
+            userId: data.user_id,
+            questionId: data.question_id,
+            flaggedAt: data.created_at,
+            reason // Returning reason back to client even if not stored
         };
-
-        flags.push(newFlag);
-        saveFlags(flags);
 
         return NextResponse.json({ flag: newFlag });
     } catch (error) {
@@ -94,13 +87,16 @@ export async function DELETE(
         }
 
         const userId = (session.user as any).id;
-        const flags = getFlags();
 
-        const filteredFlags = flags.filter(
-            f => !(f.userId === userId && f.questionId === params.questionId)
-        );
+        const { error } = await supabaseAdmin
+            .from('question_flags')
+            .delete()
+            .eq('user_id', userId)
+            .eq('question_id', params.questionId);
 
-        saveFlags(filteredFlags);
+        if (error) {
+            throw new Error(error.message);
+        }
 
         return NextResponse.json({ message: 'Flag removed' });
     } catch (error) {

@@ -134,3 +134,31 @@ CREATE TRIGGER users_updated_at
 CREATE TRIGGER notes_updated_at
     BEFORE UPDATE ON question_notes
     FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+-- Review schedules (Spaced Repetition)
+CREATE TABLE IF NOT EXISTS review_schedules (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    question_id TEXT NOT NULL,
+    easiness_factor NUMERIC DEFAULT 2.5,
+    interval INTEGER DEFAULT 0,
+    repetitions INTEGER DEFAULT 0,
+    next_review_date TIMESTAMPTZ,
+    last_review_date TIMESTAMPTZ,
+    last_quality INTEGER,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(user_id, question_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_reviews_user ON review_schedules(user_id);
+CREATE INDEX IF NOT EXISTS idx_reviews_due ON review_schedules(next_review_date);
+
+ALTER TABLE review_schedules ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can manage own review schedules" ON review_schedules
+    FOR ALL USING (auth.uid() = user_id);
+
+CREATE TRIGGER reviews_updated_at
+    BEFORE UPDATE ON review_schedules
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at();

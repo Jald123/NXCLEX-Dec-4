@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
             .insert({
                 user_id: userId,
                 question_id: questionId,
-                selected_answer: JSON.stringify(selectedAnswer),
+                selected_answer: selectedAnswer, // JSONB handles array/string natively
                 is_correct: isCorrect,
                 time_spent: timeSpent || 0,
                 attempt_number: attemptNumber,

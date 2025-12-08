@@ -1,27 +1,22 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import fs from 'fs';
-import path from 'path';
 import type { WellnessSession, WellnessStats } from '@nclex/shared-api-types';
+import { supabaseAdmin, DbSession } from '@/lib/supabase';
 
-const SESSIONS_FILE = path.join(process.cwd(), 'data', 'wellness-sessions.json');
-
-function getSessions(): WellnessSession[] {
-    try {
-        if (!fs.existsSync(SESSIONS_FILE)) {
-            const dir = path.dirname(SESSIONS_FILE);
-            if (!fs.existsSync(dir)) {
-                fs.mkdirSync(dir, { recursive: true });
-            }
-            fs.writeFileSync(SESSIONS_FILE, '[]', 'utf-8');
-            return [];
-        }
-        const data = fs.readFileSync(SESSIONS_FILE, 'utf-8');
-        return JSON.parse(data);
-    } catch (error) {
-        console.error('Error reading wellness sessions:', error);
-        return [];
-    }
+// Helper to map DB result to plain WellnessSession
+function mapDbToWellness(db: DbSession): WellnessSession {
+    const meta = db.results || {};
+    return {
+        id: db.id,
+        userId: db.user_id,
+        type: db.mode.replace('wellness_', '') as WellnessSession['type'],
+        exerciseName: meta.exerciseName,
+        technique: meta.technique,
+        duration: meta.duration,
+        completed: db.status === 'completed',
+        startedAt: db.started_at,
+        completedAt: db.completed_at || undefined
+    };
 }
 
 function calculateStreak(sessions: WellnessSession[]): { current: number; longest: number } {
@@ -84,8 +79,31 @@ export async function GET() {
         }
 
         const userId = (session.user as any).id;
-        const allSessions = getSessions();
-        const userSessions = allSessions.filter(s => s.userId === userId && s.completed);
+
+        // Fetch all wellness sessions from practice_sessions table
+        const { data: dbSessions, error } = await supabaseAdmin
+            .from('practice_sessions')
+            .select('*')
+            .eq('user_id', userId)
+            .like('mode', 'wellness_%')
+            .eq('status', 'completed');
+
+        if (error) {
+            console.error('Error fetching wellness sessions:', error);
+            // Return empty stats implicitly or handle error? Returing empty is safer for UI
+            return NextResponse.json({
+                userId,
+                totalSessions: 0,
+                currentStreak: 0,
+                longestStreak: 0,
+                favoriteExercise: '',
+                totalMinutes: 0,
+                lastSessionAt: '',
+                sessionsByType: { breathing: 0, muscle_relaxation: 0, meditation: 0, study_break: 0 }
+            });
+        }
+
+        const userSessions = (dbSessions as DbSession[]).map(mapDbToWellness);
 
         if (userSessions.length === 0) {
             const emptyStats: WellnessStats = {
@@ -108,7 +126,7 @@ export async function GET() {
 
         // Calculate stats
         const streaks = calculateStreak(userSessions);
-        const totalMinutes = Math.round(userSessions.reduce((sum, s) => sum + s.duration, 0) / 60);
+        const totalMinutes = Math.round(userSessions.reduce((sum, s) => sum + (s.duration || 0), 0) / 60);
 
         // Count by type
         const sessionsByType = {
@@ -122,6 +140,9 @@ export async function GET() {
         const favorite = Object.entries(sessionsByType)
             .sort(([, a], [, b]) => b - a)[0][0];
 
+        // Safe check for last session
+        const lastSession = userSessions.length > 0 ? userSessions[userSessions.length - 1] : null;
+
         const stats: WellnessStats = {
             userId,
             totalSessions: userSessions.length,
@@ -129,7 +150,7 @@ export async function GET() {
             longestStreak: streaks.longest,
             favoriteExercise: favorite,
             totalMinutes,
-            lastSessionAt: userSessions[userSessions.length - 1].completedAt!,
+            lastSessionAt: lastSession?.completedAt || '',
             sessionsByType
         };
 

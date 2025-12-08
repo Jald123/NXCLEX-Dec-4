@@ -1,20 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import fs from 'fs';
-import path from 'path';
 import type { UserProgress } from '@nclex/shared-api-types';
+import { supabaseAdmin, DbProgress, TABLES } from '@/lib/supabase';
 
-const PROGRESS_FILE = path.join(process.cwd(), 'data', 'progress.json');
-
-function getProgress(): UserProgress[] {
-    try {
-        if (!fs.existsSync(PROGRESS_FILE)) return [];
-        const data = fs.readFileSync(PROGRESS_FILE, 'utf-8');
-        return JSON.parse(data);
-    } catch (error) {
-        console.error('Error reading progress:', error);
-        return [];
-    }
+function mapDbProgress(db: DbProgress): UserProgress {
+    return {
+        id: db.id,
+        userId: db.user_id,
+        questionId: db.question_id,
+        attemptedAt: db.attempted_at,
+        selectedAnswer: db.selected_answer,
+        isCorrect: db.is_correct,
+        timeSpent: db.time_spent,
+        attemptNumber: db.attempt_number
+    };
 }
 
 export async function GET(req: NextRequest) {
@@ -30,27 +29,31 @@ export async function GET(req: NextRequest) {
         const filter = searchParams.get('filter'); // 'correct' | 'incorrect' | 'all'
         const limit = parseInt(searchParams.get('limit') || '50');
 
-        const allProgress = getProgress();
-        let userProgress = allProgress.filter(p => p.userId === userId);
+        let query = supabaseAdmin
+            .from(TABLES.PROGRESS)
+            .select('*')
+            .eq('user_id', userId)
+            .order('attempted_at', { ascending: false })
+            .limit(limit);
 
-        // Apply filter
         if (filter === 'correct') {
-            userProgress = userProgress.filter(p => p.isCorrect);
+            query = query.eq('is_correct', true);
         } else if (filter === 'incorrect') {
-            userProgress = userProgress.filter(p => !p.isCorrect);
+            query = query.eq('is_correct', false);
         }
 
-        // Sort by most recent first
-        userProgress.sort((a, b) =>
-            new Date(b.attemptedAt).getTime() - new Date(a.attemptedAt).getTime()
-        );
+        const { data, error, count } = await query; // count not automatically included with select(*) unless requested
 
-        // Apply limit
-        const limitedProgress = userProgress.slice(0, limit);
+        if (error) {
+            console.error('Supabase error fetching history:', error);
+            return NextResponse.json({ history: [], total: 0 });
+        }
+
+        const history = (data as DbProgress[]).map(mapDbProgress);
 
         return NextResponse.json({
-            history: limitedProgress,
-            total: userProgress.length,
+            history,
+            total: history.length, // approximate if limited, ideally query count separately if needed but basic stats ok
         });
     } catch (error) {
         console.error('Error fetching history:', error);

@@ -1,25 +1,34 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import fs from 'fs';
-import path from 'path';
 import type { UserProgress, TrendPoint } from '@nclex/shared-api-types';
+import { supabaseAdmin, DbProgress, TABLES } from '@/lib/supabase';
 
-const PROGRESS_FILE = path.join(process.cwd(), 'data', 'progress.json');
-
-function getProgress(): UserProgress[] {
-    try {
-        if (!fs.existsSync(PROGRESS_FILE)) return [];
-        const data = fs.readFileSync(PROGRESS_FILE, 'utf-8');
-        return JSON.parse(data);
-    } catch (error) {
-        console.error('Error reading progress:', error);
-        return [];
-    }
+function mapDbProgress(db: DbProgress): UserProgress {
+    return {
+        id: db.id,
+        userId: db.user_id,
+        questionId: db.question_id,
+        attemptedAt: db.attempted_at,
+        selectedAnswer: db.selected_answer,
+        isCorrect: db.is_correct,
+        timeSpent: db.time_spent,
+        attemptNumber: db.attempt_number
+    };
 }
 
-function calculateTrendData(userId: string, days: number = 30): TrendPoint[] {
-    const allProgress = getProgress();
-    const userProgress = allProgress.filter(p => p.userId === userId);
+async function calculateTrendData(userId: string, days: number = 30): Promise<TrendPoint[]> {
+    // 1. Fetch all progress for user
+    const { data: progressData, error } = await supabaseAdmin
+        .from(TABLES.PROGRESS)
+        .select('*')
+        .eq('user_id', userId);
+
+    if (error) {
+        console.error('Error fetching progress for trends:', error);
+        return [];
+    }
+
+    const userProgress = (progressData as DbProgress[]).map(mapDbProgress);
 
     // Get unique questions (latest attempt only)
     const uniqueQuestions = new Map<string, UserProgress>();
@@ -84,7 +93,7 @@ export async function GET() {
         }
 
         const userId = (session.user as any).id;
-        const trendData = calculateTrendData(userId, 30);
+        const trendData = await calculateTrendData(userId, 30);
 
         return NextResponse.json({ trends: trendData });
     } catch (error) {

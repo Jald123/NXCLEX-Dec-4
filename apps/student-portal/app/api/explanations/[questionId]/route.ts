@@ -1,37 +1,37 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
+import { supabaseAdmin } from '@/lib/supabase';
 import type { QuestionExplanation } from '@nclex/shared-api-types';
-
-const EXPLANATIONS_FILE = path.join(process.cwd(), 'data', 'explanations.json');
-
-function getExplanations(): QuestionExplanation[] {
-    try {
-        if (!fs.existsSync(EXPLANATIONS_FILE)) {
-            return [];
-        }
-        const data = fs.readFileSync(EXPLANATIONS_FILE, 'utf-8');
-        return JSON.parse(data);
-    } catch (error) {
-        console.error('Error reading explanations:', error);
-        return [];
-    }
-}
 
 export async function GET(
     req: Request,
     { params }: { params: { questionId: string } }
 ) {
     try {
-        const explanations = getExplanations();
-        const explanation = explanations.find(e => e.questionId === params.questionId);
+        const { data, error } = await supabaseAdmin
+            .from('NclexItem')
+            .select('id, rationale, explanation') // Select all potential explanation fields
+            .eq('id', params.questionId)
+            .single();
 
-        if (!explanation) {
+        if (error || !data) {
             return NextResponse.json(
                 { error: 'Explanation not found' },
                 { status: 404 }
             );
         }
+
+        // Map to QuestionExplanation type
+        // content/rationale might vary based on DB schema. Assuming 'rationale' or 'explanation' column.
+        // If DB has JSONB for explanation details, we could use that.
+        // For now, mapping simple string to correctAnswerRationale.
+
+        const explanation: QuestionExplanation = {
+            questionId: data.id,
+            correctAnswerRationale: data.rationale || data.explanation || "Explanation not available.",
+            distractorRationales: [],
+            keyConcepts: [],
+            references: []
+        };
 
         return NextResponse.json(explanation);
     } catch (error) {

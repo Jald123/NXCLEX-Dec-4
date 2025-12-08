@@ -1,7 +1,5 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import fs from 'fs';
-import path from 'path';
 import type {
     UserProgress,
     NclexItemDraft,
@@ -10,9 +8,8 @@ import type {
     DomainMastery,
     BlueprintCategory
 } from '@nclex/shared-api-types';
-
-const PROGRESS_FILE = path.join(process.cwd(), 'data', 'progress.json');
-const ITEMS_FILE = path.join(process.cwd(), '../admin-dashboard/data', 'items.json');
+import { supabaseAdmin, DbProgress, TABLES } from '@/lib/supabase';
+import { getPublishedItems } from '@/lib/storage';
 
 // NCLEX 2026+ Blueprint Weights
 const NCLEX_BLUEPRINT: Record<string, number> = {
@@ -27,28 +24,30 @@ const NCLEX_BLUEPRINT: Record<string, number> = {
     'Other': 24
 };
 
-function getProgress(): UserProgress[] {
-    try {
-        if (!fs.existsSync(PROGRESS_FILE)) return [];
-        const data = fs.readFileSync(PROGRESS_FILE, 'utf-8');
-        return JSON.parse(data);
-    } catch (error) {
-        console.error('Error reading progress:', error);
-        return [];
-    }
+function mapDbProgress(db: DbProgress): UserProgress {
+    return {
+        id: db.id,
+        userId: db.user_id,
+        questionId: db.question_id,
+        attemptedAt: db.attempted_at,
+        selectedAnswer: db.selected_answer,
+        isCorrect: db.is_correct,
+        timeSpent: db.time_spent,
+        attemptNumber: db.attempt_number
+    };
 }
 
-function getQuestions(): NclexItemDraft[] {
-    try {
-        if (!fs.existsSync(ITEMS_FILE)) return [];
-        const data = fs.readFileSync(ITEMS_FILE, 'utf-8');
-        const items = JSON.parse(data);
-        // Filter to published_student only
-        return items.filter((item: NclexItemDraft) => item.status === 'published_student');
-    } catch (error) {
-        console.error('Error reading questions:', error);
+async function getProgress(userId: string): Promise<UserProgress[]> {
+    const { data, error } = await supabaseAdmin
+        .from(TABLES.PROGRESS)
+        .select('*')
+        .eq('user_id', userId);
+
+    if (error) {
+        console.error('Error fetching progress:', error);
         return [];
     }
+    return (data as DbProgress[]).map(mapDbProgress);
 }
 
 interface QuestionScore {
@@ -228,9 +227,10 @@ export async function GET(req: Request) {
         const difficulty = url.searchParams.get('difficulty') || 'mixed';
 
         // Get user data
-        const allProgress = getProgress();
-        const userProgress = allProgress.filter(p => p.userId === userId);
-        const allQuestions = getQuestions();
+        const [userProgress, allQuestions] = await Promise.all([
+            getProgress(userId),
+            getPublishedItems('student_paid') // Assuming paid or check role
+        ]);
 
         // Get analytics data (simplified - in production, call analytics APIs)
         const domainMap = new Map<string, { attempted: number; correct: number }>();

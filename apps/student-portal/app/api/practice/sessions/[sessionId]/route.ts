@@ -1,53 +1,22 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import fs from 'fs';
-import path from 'path';
 import type { PracticeSession, UserProgress, NclexItemDraft } from '@nclex/shared-api-types';
+import { supabaseAdmin, DbSession, DbProgress, TABLES } from '@/lib/supabase';
+import { getPublishedItems } from '@/lib/storage';
 
-const SESSIONS_FILE = path.join(process.cwd(), 'data', 'sessions.json');
-const PROGRESS_FILE = path.join(process.cwd(), 'data', 'progress.json');
-const ITEMS_FILE = path.join(process.cwd(), '../admin-dashboard/data', 'items.json');
-
-function getSessions(): PracticeSession[] {
-    try {
-        if (!fs.existsSync(SESSIONS_FILE)) return [];
-        const data = fs.readFileSync(SESSIONS_FILE, 'utf-8');
-        return JSON.parse(data);
-    } catch (error) {
-        return [];
-    }
-}
-
-function saveSessions(sessions: PracticeSession[]) {
-    try {
-        const dir = path.dirname(SESSIONS_FILE);
-        if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true });
-        }
-        fs.writeFileSync(SESSIONS_FILE, JSON.stringify(sessions, null, 2), 'utf-8');
-    } catch (error) {
-        console.error('Error saving sessions:', error);
-    }
-}
-
-function getProgress(): UserProgress[] {
-    try {
-        if (!fs.existsSync(PROGRESS_FILE)) return [];
-        const data = fs.readFileSync(PROGRESS_FILE, 'utf-8');
-        return JSON.parse(data);
-    } catch (error) {
-        return [];
-    }
-}
-
-function getQuestions(): NclexItemDraft[] {
-    try {
-        if (!fs.existsSync(ITEMS_FILE)) return [];
-        const data = fs.readFileSync(ITEMS_FILE, 'utf-8');
-        return JSON.parse(data);
-    } catch (error) {
-        return [];
-    }
+// Helper to map DB result to API type
+function mapDbSession(db: DbSession): PracticeSession {
+    return {
+        id: db.id,
+        userId: db.user_id,
+        mode: db.mode as PracticeSession['mode'], // Cast if needed
+        questions: db.questions,
+        startedAt: db.started_at,
+        completedAt: db.completed_at || undefined,
+        status: db.status as PracticeSession['status'],
+        currentQuestionIndex: db.current_question_index,
+        results: db.results
+    };
 }
 
 // GET: Get specific session
@@ -63,12 +32,19 @@ export async function GET(
         }
 
         const userId = (session.user as any).id;
-        const sessions = getSessions();
-        const practiceSession = sessions.find(s => s.id === params.sessionId && s.userId === userId);
 
-        if (!practiceSession) {
+        const { data, error } = await supabaseAdmin
+            .from('practice_sessions')
+            .select('*')
+            .eq('id', params.sessionId)
+            .eq('user_id', userId)
+            .single();
+
+        if (error || !data) {
             return NextResponse.json({ error: 'Session not found' }, { status: 404 });
         }
+
+        const practiceSession = mapDbSession(data as DbSession);
 
         const progress = {
             current: practiceSession.currentQuestionIndex + 1,
@@ -103,51 +79,76 @@ export async function POST(
         }
 
         const userId = (session.user as any).id;
-        const sessions = getSessions();
-        const sessionIndex = sessions.findIndex(s => s.id === params.sessionId && s.userId === userId);
 
-        if (sessionIndex === -1) {
+        // 1. Fetch Session
+        const { data: sessionData, error: sessionError } = await supabaseAdmin
+            .from('practice_sessions')
+            .select('*')
+            .eq('id', params.sessionId)
+            .eq('user_id', userId)
+            .single();
+
+        if (sessionError || !sessionData) {
             return NextResponse.json({ error: 'Session not found' }, { status: 404 });
         }
 
-        const practiceSession = sessions[sessionIndex];
+        const practiceSession = mapDbSession(sessionData as DbSession);
 
-        // Calculate results from progress data
-        const allProgress = getProgress();
-        const allQuestions = getQuestions();
+        // 2. Fetch User Progress for relevant questions
+        // We only care about progress for questions IN this session
+        // AND attempts that happened AFTER the session started
+        const { data: progressData } = await supabaseAdmin
+            .from(TABLES.PROGRESS)
+            .select('*')
+            .eq('user_id', userId)
+            .in('question_id', practiceSession.questions);
+        // .gte('attempted_at', practiceSession.startedAt); // Optional: if we want stricly session attempts
+        // The logic in original file was: attemptedAt >= session.startedAt
 
-        // Get progress for questions in this session
-        const sessionProgress = allProgress.filter(p =>
-            p.userId === userId &&
-            practiceSession.questions.includes(p.questionId) &&
-            new Date(p.attemptedAt) >= new Date(practiceSession.startedAt)
+        const sessionProgressDb = (progressData || []) as DbProgress[];
+
+        // Filter by time locally or assume DB query is better (locally is safer for timezone issues if any)
+        const validProgress = sessionProgressDb.filter(p =>
+            new Date(p.attempted_at) >= new Date(practiceSession.startedAt)
         );
 
-        // Get latest attempt per question
-        const latestAttempts = new Map<string, UserProgress>();
-        sessionProgress.forEach(p => {
-            const existing = latestAttempts.get(p.questionId);
-            if (!existing || new Date(p.attemptedAt) > new Date(existing.attemptedAt)) {
-                latestAttempts.set(p.questionId, p);
+        // 3. Fetch Questions to get domains/categories
+        // We can optimize this by fetching only IDs in session, but getPublishedItems gets all.
+        // Assuming cache or reasonable size. 
+        // Or we use supabaseAdmin directly to fetch specific IDs.
+        const { data: questionsData } = await supabaseAdmin
+            .from('NclexItem')
+            .select('*')
+            .in('id', practiceSession.questions);
+
+        const relevantQuestions = (questionsData || []) as NclexItemDraft[];
+
+        // 4. Calculate Stats
+        // Logic copied from original: Get latest attempt per question
+        const latestAttempts = new Map<string, DbProgress>();
+        validProgress.forEach(p => {
+            const existing = latestAttempts.get(p.question_id);
+            if (!existing || new Date(p.attempted_at) > new Date(existing.attempted_at)) {
+                latestAttempts.set(p.question_id, p);
             }
         });
 
         const attempted = latestAttempts.size;
-        const correct = Array.from(latestAttempts.values()).filter(p => p.isCorrect).length;
+        const correct = Array.from(latestAttempts.values()).filter(p => p.is_correct).length;
         const incorrect = attempted - correct;
         const accuracy = attempted > 0 ? (correct / attempted) * 100 : 0;
-        const totalTime = Array.from(latestAttempts.values()).reduce((sum, p) => sum + p.timeSpent, 0);
+        const totalTime = Array.from(latestAttempts.values()).reduce((sum, p) => sum + (p.time_spent || 0), 0);
         const averageTime = attempted > 0 ? totalTime / attempted : 0;
 
         // Calculate by domain
         const domainMap = new Map<string, { attempted: number; correct: number }>();
         Array.from(latestAttempts.values()).forEach(progress => {
-            const question = allQuestions.find(q => q.id === progress.questionId);
+            const question = relevantQuestions.find(q => q.id === progress.question_id);
             if (question) {
                 const domain = question.category || 'Other';
                 const existing = domainMap.get(domain) || { attempted: 0, correct: 0 };
                 existing.attempted++;
-                if (progress.isCorrect) existing.correct++;
+                if (progress.is_correct) existing.correct++;
                 domainMap.set(domain, existing);
             }
         });
@@ -159,10 +160,7 @@ export async function POST(
             accuracy: (stats.correct / stats.attempted) * 100
         }));
 
-        // Update session
-        practiceSession.status = 'completed';
-        practiceSession.completedAt = new Date().toISOString();
-        practiceSession.results = {
+        const results = {
             attempted,
             correct,
             incorrect,
@@ -172,12 +170,25 @@ export async function POST(
             byDomain
         };
 
-        sessions[sessionIndex] = practiceSession;
-        saveSessions(sessions);
+        // 5. Update Session
+        const { data: updatedSessionData, error: updateError } = await supabaseAdmin
+            .from('practice_sessions')
+            .update({
+                status: 'completed',
+                completed_at: new Date().toISOString(),
+                results: results
+            })
+            .eq('id', params.sessionId)
+            .select()
+            .single();
+
+        if (updateError) {
+            throw new Error(updateError.message);
+        }
 
         return NextResponse.json({
-            session: practiceSession,
-            results: practiceSession.results
+            session: mapDbSession(updatedSessionData as DbSession),
+            results
         });
     } catch (error) {
         console.error('Error completing session:', error);

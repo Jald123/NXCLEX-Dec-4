@@ -1,36 +1,22 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import fs from 'fs';
-import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import type { PracticeSession } from '@nclex/shared-api-types';
+import { supabaseAdmin, DbSession } from '@/lib/supabase';
 
-const SESSIONS_FILE = path.join(process.cwd(), 'data', 'sessions.json');
-
-function getSessions(): PracticeSession[] {
-    try {
-        if (!fs.existsSync(SESSIONS_FILE)) {
-            fs.writeFileSync(SESSIONS_FILE, '[]', 'utf-8');
-            return [];
-        }
-        const data = fs.readFileSync(SESSIONS_FILE, 'utf-8');
-        return JSON.parse(data);
-    } catch (error) {
-        console.error('Error reading sessions:', error);
-        return [];
-    }
-}
-
-function saveSessions(sessions: PracticeSession[]) {
-    try {
-        const dir = path.dirname(SESSIONS_FILE);
-        if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true });
-        }
-        fs.writeFileSync(SESSIONS_FILE, JSON.stringify(sessions, null, 2), 'utf-8');
-    } catch (error) {
-        console.error('Error saving sessions:', error);
-    }
+// Helper to map DB result to API type
+function mapDbSession(db: DbSession): PracticeSession {
+    return {
+        id: db.id,
+        userId: db.user_id,
+        mode: db.mode as PracticeSession['mode'], // Cast if needed
+        questions: db.questions,
+        startedAt: db.started_at,
+        completedAt: db.completed_at || undefined,
+        status: db.status as PracticeSession['status'],
+        currentQuestionIndex: db.current_question_index,
+        results: db.results
+    };
 }
 
 // POST: Create new session
@@ -50,7 +36,9 @@ export async function POST(req: Request) {
 
         if (useRecommended) {
             // Fetch recommended questions
-            const recResponse = await fetch(`${process.env.NEXTAUTH_URL}/api/practice/recommended?count=20`);
+            // Ensure NEXTAUTH_URL is defined, fallback to localhost if missing (dev safety)
+            const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3001';
+            const recResponse = await fetch(`${baseUrl}/api/practice/recommended?count=20`);
             if (recResponse.ok) {
                 const recData = await recResponse.json();
                 questions = recData.recommendations.questions.map((q: any) => q.questionId);
@@ -63,19 +51,30 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'No questions provided' }, { status: 400 });
         }
 
-        const newSession: PracticeSession = {
-            id: uuidv4(),
-            userId,
-            mode: mode || 'recommended',
-            questions,
-            startedAt: new Date().toISOString(),
-            status: 'in_progress',
-            currentQuestionIndex: 0
-        };
+        // Create in Supabase
+        const { data, error } = await supabaseAdmin
+            .from('practice_sessions')
+            .insert({
+                user_id: userId,
+                mode: mode || 'recommended',
+                questions: questions, // Supabase handles JSONB array
+                status: 'in_progress',
+                current_question_index: 0,
+                started_at: new Date().toISOString()
+            })
+            .select()
+            .single();
 
-        const sessions = getSessions();
-        sessions.push(newSession);
-        saveSessions(sessions);
+        if (error) {
+            console.error('Supabase error creating session:', error);
+            throw new Error(error.message);
+        }
+
+        if (!data) {
+            throw new Error('No data returned from creation');
+        }
+
+        const newSession = mapDbSession(data as DbSession);
 
         return NextResponse.json({
             session: newSession,
@@ -100,8 +99,19 @@ export async function GET() {
         }
 
         const userId = (session.user as any).id;
-        const sessions = getSessions();
-        const userSessions = sessions.filter(s => s.userId === userId);
+
+        const { data, error } = await supabaseAdmin
+            .from('practice_sessions')
+            .select('*')
+            .eq('user_id', userId)
+            .order('started_at', { ascending: false });
+
+        if (error) {
+            console.error('Supabase error fetching sessions:', error);
+            throw new Error(error.message);
+        }
+
+        const userSessions = (data as DbSession[]).map(mapDbSession);
 
         return NextResponse.json({ sessions: userSessions });
     } catch (error) {

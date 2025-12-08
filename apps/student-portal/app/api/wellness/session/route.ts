@@ -1,40 +1,23 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import fs from 'fs';
-import path from 'path';
-import { v4 as uuidv4 } from 'uuid';
 import type { WellnessSession } from '@nclex/shared-api-types';
+import { supabaseAdmin, DbSession } from '@/lib/supabase';
 
-const SESSIONS_FILE = path.join(process.cwd(), 'data', 'wellness-sessions.json');
-
-function getSessions(): WellnessSession[] {
-    try {
-        if (!fs.existsSync(SESSIONS_FILE)) {
-            const dir = path.dirname(SESSIONS_FILE);
-            if (!fs.existsSync(dir)) {
-                fs.mkdirSync(dir, { recursive: true });
-            }
-            fs.writeFileSync(SESSIONS_FILE, '[]', 'utf-8');
-            return [];
-        }
-        const data = fs.readFileSync(SESSIONS_FILE, 'utf-8');
-        return JSON.parse(data);
-    } catch (error) {
-        console.error('Error reading wellness sessions:', error);
-        return [];
-    }
-}
-
-function saveSessions(sessions: WellnessSession[]) {
-    try {
-        const dir = path.dirname(SESSIONS_FILE);
-        if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true });
-        }
-        fs.writeFileSync(SESSIONS_FILE, JSON.stringify(sessions, null, 2), 'utf-8');
-    } catch (error) {
-        console.error('Error saving wellness sessions:', error);
-    }
+// Helper to map DB result to plain WellnessSession
+function mapDbToWellness(db: DbSession): WellnessSession {
+    // We stored metadata in 'results' JSON column
+    const meta = db.results || {};
+    return {
+        id: db.id,
+        userId: db.user_id,
+        type: db.mode.replace('wellness_', '') as WellnessSession['type'],
+        exerciseName: meta.exerciseName,
+        technique: meta.technique,
+        duration: meta.duration,
+        completed: db.status === 'completed',
+        startedAt: db.started_at,
+        completedAt: db.completed_at || undefined
+    };
 }
 
 // POST: Start a new wellness session
@@ -50,22 +33,30 @@ export async function POST(req: Request) {
         const body = await req.json();
         const { type, exerciseName, technique, duration } = body;
 
-        const newSession: WellnessSession = {
-            id: uuidv4(),
-            userId,
-            type,
-            exerciseName,
-            technique,
-            duration,
-            completed: false,
-            startedAt: new Date().toISOString()
-        };
+        // Store as a practice_session with special mode and metadata in results
+        const { data, error } = await supabaseAdmin
+            .from('practice_sessions')
+            .insert({
+                user_id: userId,
+                mode: `wellness_${type}`,
+                questions: [], // No questions
+                status: 'in_progress',
+                started_at: new Date().toISOString(),
+                // Store wellness metadata in results field
+                results: {
+                    exerciseName,
+                    technique,
+                    duration // minutes
+                }
+            })
+            .select()
+            .single();
 
-        const sessions = getSessions();
-        sessions.push(newSession);
-        saveSessions(sessions);
+        if (error) {
+            throw new Error(error.message);
+        }
 
-        return NextResponse.json({ session: newSession });
+        return NextResponse.json({ session: mapDbToWellness(data as DbSession) });
     } catch (error) {
         console.error('Error starting wellness session:', error);
         return NextResponse.json(
@@ -88,18 +79,22 @@ export async function PATCH(req: Request) {
         const body = await req.json();
         const { sessionId } = body;
 
-        const sessions = getSessions();
-        const sessionIndex = sessions.findIndex(s => s.id === sessionId && s.userId === userId);
+        const { data, error } = await supabaseAdmin
+            .from('practice_sessions')
+            .update({
+                status: 'completed',
+                completed_at: new Date().toISOString()
+            })
+            .eq('id', sessionId)
+            .eq('user_id', userId)
+            .select()
+            .single();
 
-        if (sessionIndex === -1) {
+        if (error || !data) {
             return NextResponse.json({ error: 'Session not found' }, { status: 404 });
         }
 
-        sessions[sessionIndex].completed = true;
-        sessions[sessionIndex].completedAt = new Date().toISOString();
-        saveSessions(sessions);
-
-        return NextResponse.json({ session: sessions[sessionIndex] });
+        return NextResponse.json({ session: mapDbToWellness(data as DbSession) });
     } catch (error) {
         console.error('Error completing wellness session:', error);
         return NextResponse.json(

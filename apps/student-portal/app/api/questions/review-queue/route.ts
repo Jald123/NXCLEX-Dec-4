@@ -1,14 +1,51 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import fs from 'fs';
-import path from 'path';
+import { supabaseAdmin, DbReview, TABLES } from '@/lib/supabase';
+import { getPublishedItems } from '@/lib/storage'; // Reusing this for item fetching
 
-const REVIEW_SCHEDULES_FILE = path.join(process.cwd(), 'data', 'review-schedules.json');
-const ITEMS_FILE = path.join(process.cwd(), '..', 'admin-dashboard', 'data', 'items.json');
+// Helper to map DB review to API format expected by frontend
+function mapReviewData(db: DbReview) {
+    return {
+        repetitions: db.repetitions,
+        easeFactor: db.easiness_factor,
+        interval: db.interval,
+        nextReviewDate: db.next_review_date,
+        lastReviewedAt: db.last_review_date
+    };
+}
 
-// Ensure review schedules file exists
-if (!fs.existsSync(REVIEW_SCHEDULES_FILE)) {
-    fs.writeFileSync(REVIEW_SCHEDULES_FILE, JSON.stringify([], null, 2));
+// SM-2 Algorithm (Duplicated from api/review/route.ts for independence)
+function calculateNextReview(
+    repetitions: number,
+    easeFactor: number,
+    interval: number,
+    quality: number
+): { repetitions: number; easeFactor: number; interval: number } {
+    let newEaseFactor = easeFactor + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
+    newEaseFactor = Math.max(1.3, newEaseFactor);
+
+    let newRepetitions = repetitions;
+    let newInterval = interval;
+
+    if (quality < 3) {
+        newRepetitions = 0;
+        newInterval = 1;
+    } else {
+        newRepetitions = repetitions + 1;
+        if (newRepetitions === 1) {
+            newInterval = 1;
+        } else if (newRepetitions === 2) {
+            newInterval = 6;
+        } else {
+            newInterval = Math.round(interval * newEaseFactor);
+        }
+    }
+
+    return {
+        repetitions: newRepetitions,
+        easeFactor: newEaseFactor,
+        interval: newInterval
+    };
 }
 
 export async function GET(req: Request) {
@@ -18,54 +55,66 @@ export async function GET(req: Request) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const userId = session.user.email;
-        const now = new Date();
+        const userId = (session.user as any).id;
+        const now = new Date().toISOString();
 
-        // Load review schedules
-        const schedules = JSON.parse(fs.readFileSync(REVIEW_SCHEDULES_FILE, 'utf-8'));
-        const userSchedules = schedules.filter((s: any) =>
-            s.userId === userId &&
-            new Date(s.nextReviewDate) <= now
-        );
+        // 1. Fetch due reviews
+        const { data: dueReviews, error } = await supabaseAdmin
+            .from(TABLES.REVIEWS)
+            .select('*')
+            .eq('user_id', userId)
+            .lte('next_review_date', now);
 
-        // Load questions
-        const allItems = JSON.parse(fs.readFileSync(ITEMS_FILE, 'utf-8'));
-        const reviewItemIds = userSchedules.map((s: any) => s.itemId);
-        const reviewQuestions = allItems.filter((item: any) =>
-            reviewItemIds.includes(item.id) &&
+        if (error) {
+            console.error('Error fetching reviews:', error);
+            return NextResponse.json({ questions: [], total: 0, dueToday: 0 });
+        }
+
+        if (!dueReviews || dueReviews.length === 0) {
+            return NextResponse.json({ questions: [], total: 0, dueToday: 0 });
+        }
+
+        const questionIds = dueReviews.map(r => r.question_id);
+
+        // 2. Fetch questions
+        // Optimisation: Fetch all published items and filter in memory if list is small, 
+        // OR fetch specific IDs if getPublishedItems supported it. 
+        // getPublishedItems fetches ALL. Assuming reasonable size for now.
+        const allItems = await getPublishedItems('student_paid');
+
+        const reviewQuestions = allItems.filter(item =>
+            questionIds.includes(item.id) &&
             (item.status === 'published_student' || item.status === 'published_trial')
         );
 
-        // Add review metadata
-        const questionsWithReviewData = reviewQuestions.map((q: any) => {
-            const schedule = userSchedules.find((s: any) => s.itemId === q.id);
+        // 3. Combine
+        const questionsWithReviewData = reviewQuestions.map(q => {
+            const schedule = dueReviews.find(s => s.question_id === q.id);
             return {
                 ...q,
-                reviewData: {
-                    repetitions: schedule?.repetitions || 0,
-                    easeFactor: schedule?.easeFactor || 2.5,
-                    interval: schedule?.interval || 0,
-                    nextReviewDate: schedule?.nextReviewDate,
-                    lastReviewedAt: schedule?.lastReviewedAt
-                }
+                reviewData: schedule ? mapReviewData(schedule) : null
             };
-        });
+        }).filter(q => q.reviewData); // Ensure schedule consistency
 
         // Sort by priority (earlier review dates first)
-        questionsWithReviewData.sort((a: any, b: any) =>
-            new Date(a.reviewData.nextReviewDate).getTime() -
-            new Date(b.reviewData.nextReviewDate).getTime()
+        questionsWithReviewData.sort((a, b) =>
+            new Date(a.reviewData!.nextReviewDate).getTime() -
+            new Date(b.reviewData!.nextReviewDate).getTime()
         );
+
+        // Calculate dueToday count
+        const todayStr = new Date().toDateString();
+        const dueToday = questionsWithReviewData.filter(q => {
+            const reviewDate = new Date(q.reviewData!.nextReviewDate);
+            return reviewDate.toDateString() === todayStr;
+        }).length;
 
         return NextResponse.json({
             questions: questionsWithReviewData,
             total: questionsWithReviewData.length,
-            dueToday: questionsWithReviewData.filter((q: any) => {
-                const reviewDate = new Date(q.reviewData.nextReviewDate);
-                const today = new Date();
-                return reviewDate.toDateString() === today.toDateString();
-            }).length
+            dueToday
         });
+
     } catch (error) {
         console.error('Error fetching review queue:', error);
         return NextResponse.json(
@@ -82,7 +131,7 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const userId = session.user.email;
+        const userId = (session.user as any).id;
         const { itemId, quality } = await req.json();
 
         if (!itemId || quality === undefined) {
@@ -92,58 +141,61 @@ export async function POST(req: Request) {
             );
         }
 
-        // Load schedules
-        const schedules = JSON.parse(fs.readFileSync(REVIEW_SCHEDULES_FILE, 'utf-8'));
-        const scheduleIndex = schedules.findIndex((s: any) =>
-            s.userId === userId && s.itemId === itemId
-        );
+        // Fetch existing schedule
+        const { data: existingData } = await supabaseAdmin
+            .from(TABLES.REVIEWS)
+            .select('*')
+            .eq('user_id', userId)
+            .eq('question_id', itemId)
+            .single();
 
-        let schedule;
-        if (scheduleIndex >= 0) {
-            schedule = schedules[scheduleIndex];
-        } else {
-            schedule = {
-                userId,
-                itemId,
-                repetitions: 0,
-                easeFactor: 2.5,
-                interval: 0
-            };
+        // Default initial values
+        let repetitions = 0;
+        let easeFactor = 2.5;
+        let interval = 0;
+
+        if (existingData) {
+            repetitions = existingData.repetitions;
+            easeFactor = existingData.easiness_factor;
+            interval = existingData.interval;
         }
 
         // SM-2 algorithm
-        const { repetitions, easeFactor, interval } = calculateNextReview(
-            schedule.repetitions,
-            schedule.easeFactor,
-            schedule.interval,
+        const result = calculateNextReview(
+            repetitions,
+            easeFactor,
+            interval,
             quality
         );
 
         const now = new Date();
         const nextReviewDate = new Date(now);
-        nextReviewDate.setDate(nextReviewDate.getDate() + interval);
+        nextReviewDate.setDate(nextReviewDate.getDate() + result.interval);
 
-        const updatedSchedule = {
-            ...schedule,
-            repetitions,
-            easeFactor,
-            interval,
-            lastReviewedAt: now.toISOString(),
-            nextReviewDate: nextReviewDate.toISOString()
+        // Upsert to DB
+        const dbPayload = {
+            user_id: userId,
+            question_id: itemId,
+            easiness_factor: result.easeFactor,
+            interval: result.interval,
+            repetitions: result.repetitions,
+            next_review_date: nextReviewDate.toISOString(),
+            last_review_date: now.toISOString(),
+            last_quality: quality
         };
 
-        if (scheduleIndex >= 0) {
-            schedules[scheduleIndex] = updatedSchedule;
-        } else {
-            schedules.push(updatedSchedule);
-        }
+        const { error: saveError } = await supabaseAdmin
+            .from(TABLES.REVIEWS)
+            .upsert(dbPayload, { onConflict: 'user_id, question_id' });
 
-        fs.writeFileSync(REVIEW_SCHEDULES_FILE, JSON.stringify(schedules, null, 2));
+        if (saveError) {
+            throw saveError;
+        }
 
         return NextResponse.json({
             success: true,
             nextReviewDate: nextReviewDate.toISOString(),
-            interval
+            interval: result.interval
         });
     } catch (error) {
         console.error('Error updating review schedule:', error);
@@ -152,41 +204,4 @@ export async function POST(req: Request) {
             { status: 500 }
         );
     }
-}
-
-function calculateNextReview(
-    repetitions: number,
-    easeFactor: number,
-    interval: number,
-    quality: number
-): { repetitions: number; easeFactor: number; interval: number } {
-    let newEaseFactor = easeFactor + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
-
-    if (newEaseFactor < 1.3) {
-        newEaseFactor = 1.3;
-    }
-
-    let newRepetitions = repetitions;
-    let newInterval = interval;
-
-    if (quality < 3) {
-        newRepetitions = 0;
-        newInterval = 1;
-    } else {
-        newRepetitions = repetitions + 1;
-
-        if (newRepetitions === 1) {
-            newInterval = 1;
-        } else if (newRepetitions === 2) {
-            newInterval = 6;
-        } else {
-            newInterval = Math.round(interval * newEaseFactor);
-        }
-    }
-
-    return {
-        repetitions: newRepetitions,
-        easeFactor: newEaseFactor,
-        interval: newInterval
-    };
 }

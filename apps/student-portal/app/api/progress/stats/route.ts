@@ -1,40 +1,34 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import fs from 'fs';
-import path from 'path';
 import type { UserProgress, UserStats, CategoryStat, NclexItemDraft } from '@nclex/shared-api-types';
+import { supabaseAdmin, DbProgress, TABLES } from '@/lib/supabase';
 
-const PROGRESS_FILE = path.join(process.cwd(), 'data', 'progress.json');
-const ITEMS_FILE = path.join(process.cwd(), '../admin-dashboard/data', 'items.json');
-
-function getProgress(): UserProgress[] {
-    try {
-        if (!fs.existsSync(PROGRESS_FILE)) return [];
-        const data = fs.readFileSync(PROGRESS_FILE, 'utf-8');
-        return JSON.parse(data);
-    } catch (error) {
-        console.error('Error reading progress:', error);
-        return [];
-    }
+function mapDbProgress(db: DbProgress): UserProgress {
+    return {
+        id: db.id,
+        userId: db.user_id,
+        questionId: db.question_id,
+        attemptedAt: db.attempted_at,
+        selectedAnswer: db.selected_answer,
+        isCorrect: db.is_correct,
+        timeSpent: db.time_spent,
+        attemptNumber: db.attempt_number
+    };
 }
 
-function getQuestions(): NclexItemDraft[] {
-    try {
-        if (!fs.existsSync(ITEMS_FILE)) return [];
-        const data = fs.readFileSync(ITEMS_FILE, 'utf-8');
-        return JSON.parse(data);
-    } catch (error) {
-        console.error('Error reading questions:', error);
-        return [];
-    }
-}
+// Optimized stats calculation
+async function calculateStats(userId: string): Promise<UserStats> {
+    // 1. Fetch all progress for user
+    const { data: progressData, error } = await supabaseAdmin
+        .from(TABLES.PROGRESS)
+        .select('*')
+        .eq('user_id', userId);
 
-function calculateStats(userId: string): UserStats {
-    const allProgress = getProgress();
-    const userProgress = allProgress.filter(p => p.userId === userId);
-    const questions = getQuestions();
+    if (error) throw new Error(error.message);
 
-    // Get unique questions (only count latest attempt)
+    const userProgress = (progressData as DbProgress[]).map(mapDbProgress);
+
+    // 2. Get unique questions (latest attempt)
     const uniqueQuestions = new Map<string, UserProgress>();
     userProgress.forEach(p => {
         const existing = uniqueQuestions.get(p.questionId);
@@ -44,6 +38,20 @@ function calculateStats(userId: string): UserStats {
     });
 
     const latestAttempts = Array.from(uniqueQuestions.values());
+    const attemptedQuestionIds = Array.from(uniqueQuestions.keys());
+
+    // 3. Fetch ONLY attempted questions to get categories
+    let questions: NclexItemDraft[] = [];
+    if (attemptedQuestionIds.length > 0) {
+        // Supabase `in` filter works for array of values
+        const { data: qData } = await supabaseAdmin
+            .from('NclexItem')
+            .select('id, category') // Select only needed fields
+            .in('id', attemptedQuestionIds);
+
+        questions = (qData || []) as Partial<NclexItemDraft>[] as NclexItemDraft[];
+    }
+
     const totalAttempted = latestAttempts.length;
     const totalCorrect = latestAttempts.filter(p => p.isCorrect).length;
     const totalIncorrect = totalAttempted - totalCorrect;
@@ -94,7 +102,7 @@ export async function GET() {
         }
 
         const userId = (session.user as any).id;
-        const stats = calculateStats(userId);
+        const stats = await calculateStats(userId);
 
         return NextResponse.json(stats);
     } catch (error) {

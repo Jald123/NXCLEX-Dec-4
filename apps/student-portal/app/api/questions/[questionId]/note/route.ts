@@ -1,39 +1,17 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import fs from 'fs';
-import path from 'path';
+import { supabaseAdmin, DbNote } from '@/lib/supabase';
 import type { QuestionNote } from '@nclex/shared-api-types';
 
-const NOTES_FILE = path.join(process.cwd(), 'data', 'notes.json');
-
-function getNotes(): QuestionNote[] {
-    try {
-        if (!fs.existsSync(NOTES_FILE)) {
-            const dir = path.dirname(NOTES_FILE);
-            if (!fs.existsSync(dir)) {
-                fs.mkdirSync(dir, { recursive: true });
-            }
-            fs.writeFileSync(NOTES_FILE, '[]', 'utf-8');
-            return [];
-        }
-        const data = fs.readFileSync(NOTES_FILE, 'utf-8');
-        return JSON.parse(data);
-    } catch (error) {
-        console.error('Error reading notes:', error);
-        return [];
-    }
-}
-
-function saveNotes(notes: QuestionNote[]) {
-    try {
-        const dir = path.dirname(NOTES_FILE);
-        if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true });
-        }
-        fs.writeFileSync(NOTES_FILE, JSON.stringify(notes, null, 2), 'utf-8');
-    } catch (error) {
-        console.error('Error saving notes:', error);
-    }
+function mapDbNote(db: DbNote): QuestionNote {
+    return {
+        id: db.id,
+        userId: db.user_id,
+        questionId: db.question_id,
+        note: db.note,
+        createdAt: db.created_at,
+        updatedAt: db.updated_at
+    };
 }
 
 // GET: Get note for a question
@@ -49,10 +27,19 @@ export async function GET(
         }
 
         const userId = (session.user as any).id;
-        const notes = getNotes();
-        const note = notes.find(n => n.userId === userId && n.questionId === params.questionId);
 
-        return NextResponse.json({ note: note || null });
+        const { data, error } = await supabaseAdmin
+            .from('question_notes')
+            .select('*')
+            .eq('user_id', userId)
+            .eq('question_id', params.questionId)
+            .single();
+
+        if (error || !data) {
+            return NextResponse.json({ note: null });
+        }
+
+        return NextResponse.json({ note: mapDbNote(data as DbNote) });
     } catch (error) {
         console.error('Error fetching note:', error);
         return NextResponse.json(
@@ -78,33 +65,24 @@ export async function POST(
         const body = await req.json();
         const { note: noteText } = body;
 
-        const notes = getNotes();
-        const existingIndex = notes.findIndex(
-            n => n.userId === userId && n.questionId === params.questionId
-        );
-
-        const now = new Date().toISOString();
-
-        if (existingIndex >= 0) {
-            // Update existing note
-            notes[existingIndex].note = noteText;
-            notes[existingIndex].updatedAt = now;
-            saveNotes(notes);
-            return NextResponse.json({ note: notes[existingIndex] });
-        } else {
-            // Create new note
-            const newNote: QuestionNote = {
-                id: `note-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                userId,
-                questionId: params.questionId,
+        // Uses UPSERT logic based on UNIQUE(user_id, question_id) constraint
+        const { data, error } = await supabaseAdmin
+            .from('question_notes')
+            .upsert({
+                user_id: userId,
+                question_id: params.questionId,
                 note: noteText,
-                createdAt: now,
-                updatedAt: now
-            };
-            notes.push(newNote);
-            saveNotes(notes);
-            return NextResponse.json({ note: newNote });
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'user_id,question_id' })
+            .select()
+            .single();
+
+        if (error) {
+            console.error('Supabase error saving note:', error);
+            throw new Error(error.message);
         }
+
+        return NextResponse.json({ note: mapDbNote(data as DbNote) });
     } catch (error) {
         console.error('Error saving note:', error);
         return NextResponse.json(

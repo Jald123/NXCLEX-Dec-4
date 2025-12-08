@@ -1,39 +1,20 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import fs from 'fs';
-import path from 'path';
 import type { ReviewSchedule } from '@nclex/shared-api-types';
+import { supabaseAdmin, DbReview, TABLES } from '@/lib/supabase';
 
-const SCHEDULES_FILE = path.join(process.cwd(), 'data', 'review-schedules.json');
-
-function getSchedules(): ReviewSchedule[] {
-    try {
-        if (!fs.existsSync(SCHEDULES_FILE)) {
-            const dir = path.dirname(SCHEDULES_FILE);
-            if (!fs.existsSync(dir)) {
-                fs.mkdirSync(dir, { recursive: true });
-            }
-            fs.writeFileSync(SCHEDULES_FILE, '[]', 'utf-8');
-            return [];
-        }
-        const data = fs.readFileSync(SCHEDULES_FILE, 'utf-8');
-        return JSON.parse(data);
-    } catch (error) {
-        console.error('Error reading schedules:', error);
-        return [];
-    }
-}
-
-function saveSchedules(schedules: ReviewSchedule[]) {
-    try {
-        const dir = path.dirname(SCHEDULES_FILE);
-        if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true });
-        }
-        fs.writeFileSync(SCHEDULES_FILE, JSON.stringify(schedules, null, 2), 'utf-8');
-    } catch (error) {
-        console.error('Error saving schedules:', error);
-    }
+// Helper to map DB review to API type
+function mapDbReview(db: DbReview): ReviewSchedule {
+    return {
+        userId: db.user_id,
+        questionId: db.question_id,
+        easinessFactor: db.easiness_factor,
+        interval: db.interval,
+        repetitions: db.repetitions,
+        nextReviewDate: db.next_review_date,
+        lastReviewDate: db.last_review_date,
+        lastQuality: db.last_quality
+    };
 }
 
 // SM-2 Algorithm
@@ -99,15 +80,24 @@ export async function GET() {
         }
 
         const userId = (session.user as any).id;
-        const schedules = getSchedules();
-        const userSchedules = schedules.filter(s => s.userId === userId);
+        const now = new Date().toISOString();
 
-        const now = new Date();
-        const dueForReview = userSchedules.filter(s => new Date(s.nextReviewDate) <= now);
+        const { data, error } = await supabaseAdmin
+            .from(TABLES.REVIEWS)
+            .select('*')
+            .eq('user_id', userId)
+            .lte('next_review_date', now);
+
+        if (error) {
+            console.error('Error fetching due reviews:', error);
+            return NextResponse.json({ dueCount: 0, questions: [] });
+        }
+
+        const dueForReview = (data as DbReview[]).map(r => r.question_id); // Only return IDs
 
         return NextResponse.json({
             dueCount: dueForReview.length,
-            questions: dueForReview.map(s => s.questionId)
+            questions: dueForReview
         });
     } catch (error) {
         console.error('Error fetching due reviews:', error);
@@ -135,26 +125,47 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'Quality must be 0-5' }, { status: 400 });
         }
 
-        const schedules = getSchedules();
-        const existingIndex = schedules.findIndex(
-            s => s.userId === userId && s.questionId === questionId
-        );
+        // Fetch existing schedule
+        const { data: existingData } = await supabaseAdmin
+            .from(TABLES.REVIEWS)
+            .select('*')
+            .eq('user_id', userId)
+            .eq('question_id', questionId)
+            .single();
+
+        const existingSchedule = existingData ? mapDbReview(existingData) : undefined;
 
         let newSchedule: ReviewSchedule;
 
-        if (existingIndex >= 0) {
-            newSchedule = calculateNextReview(quality, schedules[existingIndex]);
+        if (existingSchedule) {
+            newSchedule = calculateNextReview(quality, existingSchedule);
             newSchedule.userId = userId;
             newSchedule.questionId = questionId;
-            schedules[existingIndex] = newSchedule;
         } else {
             newSchedule = calculateNextReview(quality);
             newSchedule.userId = userId;
             newSchedule.questionId = questionId;
-            schedules.push(newSchedule);
         }
 
-        saveSchedules(schedules);
+        // Save to DB
+        const dbPayload = {
+            user_id: userId,
+            question_id: questionId,
+            easiness_factor: newSchedule.easinessFactor,
+            interval: newSchedule.interval,
+            repetitions: newSchedule.repetitions,
+            next_review_date: newSchedule.nextReviewDate,
+            last_review_date: newSchedule.lastReviewDate,
+            last_quality: newSchedule.lastQuality
+        };
+
+        const { error: saveError } = await supabaseAdmin
+            .from(TABLES.REVIEWS)
+            .upsert(dbPayload, { onConflict: 'user_id, question_id' });
+
+        if (saveError) {
+            throw saveError;
+        }
 
         return NextResponse.json({
             schedule: newSchedule,

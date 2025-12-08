@@ -1,40 +1,41 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import fs from 'fs';
-import path from 'path';
 import type {
     UserProgress,
     NclexItemDraft,
     PerformanceMetrics,
     DomainMastery,
     MasteryLevel,
-    WeakArea,
-    TrendPoint
+    // WeakArea,
+    // TrendPoint
 } from '@nclex/shared-api-types';
+import { supabaseAdmin, DbProgress, TABLES } from '@/lib/supabase';
+import { getPublishedItems } from '@/lib/storage';
 
-const PROGRESS_FILE = path.join(process.cwd(), 'data', 'progress.json');
-const ITEMS_FILE = path.join(process.cwd(), '../admin-dashboard/data', 'items.json');
-
-function getProgress(): UserProgress[] {
-    try {
-        if (!fs.existsSync(PROGRESS_FILE)) return [];
-        const data = fs.readFileSync(PROGRESS_FILE, 'utf-8');
-        return JSON.parse(data);
-    } catch (error) {
-        console.error('Error reading progress:', error);
-        return [];
-    }
+function mapDbProgress(db: DbProgress): UserProgress {
+    return {
+        id: db.id,
+        userId: db.user_id,
+        questionId: db.question_id,
+        attemptedAt: db.attempted_at,
+        selectedAnswer: db.selected_answer,
+        isCorrect: db.is_correct,
+        timeSpent: db.time_spent,
+        attemptNumber: db.attempt_number
+    };
 }
 
-function getQuestions(): NclexItemDraft[] {
-    try {
-        if (!fs.existsSync(ITEMS_FILE)) return [];
-        const data = fs.readFileSync(ITEMS_FILE, 'utf-8');
-        return JSON.parse(data);
-    } catch (error) {
-        console.error('Error reading questions:', error);
+async function getProgress(userId: string): Promise<UserProgress[]> {
+    const { data, error } = await supabaseAdmin
+        .from(TABLES.PROGRESS)
+        .select('*')
+        .eq('user_id', userId);
+
+    if (error) {
+        console.error('Error fetching progress:', error);
         return [];
     }
+    return (data as DbProgress[]).map(mapDbProgress);
 }
 
 function getMasteryLevel(accuracy: number, attempted: number): MasteryLevel {
@@ -105,10 +106,13 @@ function calculatePassProbability(metrics: {
     return Math.round(score);
 }
 
-function calculateEnhancedMetrics(userId: string): PerformanceMetrics {
-    const allProgress = getProgress();
-    const userProgress = allProgress.filter(p => p.userId === userId);
-    const questions = getQuestions();
+async function calculateEnhancedMetrics(userId: string): Promise<PerformanceMetrics> {
+    const [userProgress, questions] = await Promise.all([
+        getProgress(userId),
+        getPublishedItems('student_paid') // Or similar role check
+    ]);
+
+    // Logic below is identical to previous, just wrapped in async
 
     // Get unique questions (only count latest attempt)
     const uniqueQuestions = new Map<string, UserProgress>();
@@ -270,7 +274,7 @@ export async function GET() {
         }
 
         const userId = (session.user as any).id;
-        const metrics = calculateEnhancedMetrics(userId);
+        const metrics = await calculateEnhancedMetrics(userId);
 
         return NextResponse.json(metrics);
     } catch (error) {

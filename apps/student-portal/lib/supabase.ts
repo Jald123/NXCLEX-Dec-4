@@ -36,7 +36,7 @@ export interface DbProgress {
     user_id: string;
     question_id: string;
     attempted_at: string;
-    selected_answer: string; // JSON stringified
+    selected_answer: any; // JSONB
     is_correct: boolean;
     time_spent: number;
     attempt_number: number;
@@ -46,12 +46,12 @@ export interface DbSession {
     id: string;
     user_id: string;
     mode: string;
-    questions: string; // JSON stringified
+    questions: string[]; // JSONB array of IDs
     started_at: string;
     completed_at: string | null;
     status: 'in_progress' | 'completed' | 'abandoned';
     current_question_index: number;
-    results: string | null; // JSON stringified
+    results: any | null; // JSONB
 }
 
 export interface DbFlag {
@@ -81,6 +81,22 @@ export interface DbWellness {
     notes: string | null;
 }
 
+// ... (previous interfaces)
+
+export interface DbReview {
+    id: string;
+    user_id: string;
+    question_id: string;
+    easiness_factor: number;
+    interval: number;
+    repetitions: number;
+    next_review_date: string;
+    last_review_date: string;
+    last_quality: number;
+    created_at: string;
+    updated_at: string;
+}
+
 // Database table names
 export const TABLES = {
     USERS: 'users',
@@ -89,4 +105,5 @@ export const TABLES = {
     FLAGS: 'question_flags',
     NOTES: 'question_notes',
     WELLNESS: 'wellness_logs',
+    REVIEWS: 'review_schedules',
 } as const;

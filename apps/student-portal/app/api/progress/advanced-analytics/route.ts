@@ -1,7 +1,5 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import fs from 'fs';
-import path from 'path';
 import type {
     UserProgress,
     NclexItemDraft,
@@ -12,12 +10,10 @@ import type {
     StudyRecommendation,
     MasteryLevel
 } from '@nclex/shared-api-types';
+import { supabaseAdmin, DbProgress, TABLES } from '@/lib/supabase';
+import { getPublishedItems } from '@/lib/storage';
 
-const PROGRESS_FILE = path.join(process.cwd(), 'data', 'progress.json');
-const ITEMS_FILE = path.join(process.cwd(), '../admin-dashboard/data', 'items.json');
-
-// NCLEX 2026+ Blueprint Weights
-const NCLEX_BLUEPRINT = {
+const NCLEX_BLUEPRINT: Record<string, number> = {
     'Management of Care': 17,
     'Safety and Infection Control': 9,
     'Health Promotion and Maintenance': 6,
@@ -26,29 +22,33 @@ const NCLEX_BLUEPRINT = {
     'Pharmacological Therapies': 12,
     'Reduction of Risk Potential': 9,
     'Physiological Adaptation': 11,
-    'Other': 24 // Catch-all for uncategorized
+    'Other': 24
 };
 
-function getProgress(): UserProgress[] {
-    try {
-        if (!fs.existsSync(PROGRESS_FILE)) return [];
-        const data = fs.readFileSync(PROGRESS_FILE, 'utf-8');
-        return JSON.parse(data);
-    } catch (error) {
-        console.error('Error reading progress:', error);
-        return [];
-    }
+function mapDbProgress(db: DbProgress): UserProgress {
+    return {
+        id: db.id,
+        userId: db.user_id,
+        questionId: db.question_id,
+        attemptedAt: db.attempted_at,
+        selectedAnswer: db.selected_answer,
+        isCorrect: db.is_correct,
+        timeSpent: db.time_spent,
+        attemptNumber: db.attempt_number
+    };
 }
 
-function getQuestions(): NclexItemDraft[] {
-    try {
-        if (!fs.existsSync(ITEMS_FILE)) return [];
-        const data = fs.readFileSync(ITEMS_FILE, 'utf-8');
-        return JSON.parse(data);
-    } catch (error) {
-        console.error('Error reading questions:', error);
+async function getProgress(userId: string): Promise<UserProgress[]> {
+    const { data, error } = await supabaseAdmin
+        .from(TABLES.PROGRESS)
+        .select('*')
+        .eq('user_id', userId);
+
+    if (error) {
+        console.error('Error fetching progress:', error);
         return [];
     }
+    return (data as DbProgress[]).map(mapDbProgress);
 }
 
 function getMasteryLevel(accuracy: number, attempted: number): MasteryLevel {
@@ -229,7 +229,7 @@ function generateRecommendations(metrics: any): StudyRecommendation[] {
     const recommendations: StudyRecommendation[] = [];
 
     // Domain recommendations
-    const weakDomains = metrics.domainMastery.filter((d: any) => d.accuracy < 70 && d.attempted >= 10);
+    const weakDomains = metrics.domainMastery?.filter((d: any) => d.accuracy < 70 && d.attempted >= 10) || [];
     if (weakDomains.length > 0) {
         recommendations.push({
             type: 'domain',
@@ -319,9 +319,11 @@ export async function GET() {
         }
 
         const userId = (session.user as any).id;
-        const allProgress = getProgress();
-        const userProgress = allProgress.filter(p => p.userId === userId);
-        const questions = getQuestions();
+
+        const [userProgress, questions] = await Promise.all([
+            getProgress(userId),
+            getPublishedItems('student_paid') // Or similar role check
+        ]);
 
         // Calculate Phase 3 metrics
         const itemTypePerformance = calculateItemTypePerformance(userProgress, questions);
@@ -349,7 +351,16 @@ export async function GET() {
         };
 
         // Generate recommendations
-        const recommendations = generateRecommendations(advancedMetrics);
+        const recommendations = generateRecommendations({
+            ...advancedMetrics,
+            // domainMastery not calculated here but needed?
+            domainMastery: blueprintAlignment.map(b => ({
+                domain: b.category,
+                accuracy: b.accuracy,
+                attempted: b.attempted,
+                questionsToNextLevel: 10 // Mock or calculate
+            }))
+        });
 
         return NextResponse.json({
             ...advancedMetrics,

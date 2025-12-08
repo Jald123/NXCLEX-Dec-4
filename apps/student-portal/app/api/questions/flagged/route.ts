@@ -1,22 +1,16 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import fs from 'fs';
-import path from 'path';
+import { supabaseAdmin, DbFlag } from '@/lib/supabase';
 import type { QuestionFlag } from '@nclex/shared-api-types';
 
-const FLAGS_FILE = path.join(process.cwd(), 'data', 'flags.json');
-
-function getFlags(): QuestionFlag[] {
-    try {
-        if (!fs.existsSync(FLAGS_FILE)) {
-            return [];
-        }
-        const data = fs.readFileSync(FLAGS_FILE, 'utf-8');
-        return JSON.parse(data);
-    } catch (error) {
-        console.error('Error reading flags:', error);
-        return [];
-    }
+function mapDbFlag(db: DbFlag): QuestionFlag {
+    return {
+        id: db.id,
+        userId: db.user_id,
+        questionId: db.question_id,
+        flaggedAt: db.created_at,
+        // reason: db.reason // Missing in schema, omitting for now
+    };
 }
 
 export async function GET() {
@@ -28,8 +22,19 @@ export async function GET() {
         }
 
         const userId = (session.user as any).id;
-        const allFlags = getFlags();
-        const userFlags = allFlags.filter(f => f.userId === userId);
+
+        const { data, error } = await supabaseAdmin
+            .from('question_flags')
+            .select('*')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            console.error('Supabase error fetching flags:', error);
+            return NextResponse.json({ flags: [] });
+        }
+
+        const userFlags = (data as DbFlag[]).map(mapDbFlag);
 
         return NextResponse.json({ flags: userFlags });
     } catch (error) {
