@@ -1,18 +1,24 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { Card } from '@nclex/shared-ui';
 
 export default function AccountPage() {
-    const { data: session } = useSession();
+    const { data: session, status } = useSession();
     const router = useRouter();
     const [loading, setLoading] = useState(false);
 
     const userRole = (session?.user as any)?.role;
     const subscriptionStatus = (session?.user as any)?.subscriptionStatus;
     const isPaid = userRole === 'student_paid';
+
+    useEffect(() => {
+        if (status === 'unauthenticated') {
+            router.push('/login');
+        }
+    }, [status, router]);
 
     const handleManageSubscription = async () => {
         setLoading(true);
@@ -36,9 +42,12 @@ export default function AccountPage() {
         }
     };
 
-    if (!session) {
-        router.push('/login');
-        return null;
+    if (status === 'loading' || !session) {
+        return (
+            <div className="flex justify-center items-center min-h-screen">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            </div>
+        );
     }
 
     return (

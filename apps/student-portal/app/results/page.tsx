@@ -1,10 +1,11 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Card, Button } from '@nclex/shared-ui';
 import Link from 'next/link';
 
-export default function ResultsPage() {
+function ResultsContent() {
     const searchParams = useSearchParams();
     const score = searchParams.get('score') || '0';
     const total = searchParams.get('total') || '0';
@@ -44,5 +45,13 @@ export default function ResultsPage() {
                 </div>
             </Card>
         </div>
+    );
+}
+
+export default function ResultsPage() {
+    return (
+        <Suspense fallback={<div className="flex justify-center items-center min-h-screen"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
+            <ResultsContent />
+        </Suspense>
     );
 }

@@ -1,12 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Card } from '@nclex/shared-ui';
 import Link from 'next/link';
 import type { PracticeSession, RecommendedPractice } from '@nclex/shared-api-types';
 
-export default function SessionCompletePage() {
+function SessionCompleteContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const sessionId = searchParams.get('id');
@@ -154,8 +154,8 @@ export default function SessionCompletePage() {
                                         <div className="flex items-center justify-between mb-1">
                                             <span className="font-medium text-gray-900">{domain.domain}</span>
                                             <span className={`font-semibold ${domain.accuracy >= 80 ? 'text-green-600' :
-                                                    domain.accuracy >= 70 ? 'text-blue-600' :
-                                                        domain.accuracy >= 60 ? 'text-yellow-600' : 'text-red-600'
+                                                domain.accuracy >= 70 ? 'text-blue-600' :
+                                                    domain.accuracy >= 60 ? 'text-yellow-600' : 'text-red-600'
                                                 }`}>
                                                 {domain.accuracy.toFixed(0)}%
                                             </span>
@@ -163,8 +163,8 @@ export default function SessionCompletePage() {
                                         <div className="w-full bg-gray-200 rounded-full h-2">
                                             <div
                                                 className={`h-2 rounded-full ${domain.accuracy >= 80 ? 'bg-green-500' :
-                                                        domain.accuracy >= 70 ? 'bg-blue-500' :
-                                                            domain.accuracy >= 60 ? 'bg-yellow-500' : 'bg-red-500'
+                                                    domain.accuracy >= 70 ? 'bg-blue-500' :
+                                                        domain.accuracy >= 60 ? 'bg-yellow-500' : 'bg-red-500'
                                                     }`}
                                                 style={{ width: `${domain.accuracy}%` }}
                                             ></div>
@@ -242,5 +242,13 @@ export default function SessionCompletePage() {
                 </Link>
             </div>
         </div>
+    );
+}
+
+export default function SessionCompletePage() {
+    return (
+        <Suspense fallback={<div className="flex justify-center items-center min-h-screen"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
+            <SessionCompleteContent />
+        </Suspense>
     );
 }
